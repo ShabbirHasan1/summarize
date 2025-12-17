@@ -9,19 +9,26 @@
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js"
+      "development": "./src/index.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
     },
     "./content": {
       "types": "./dist/types/content/index.d.ts",
-      "import": "./dist/esm/content/index.js"
+      "development": "./src/content/index.ts",
+      "import": "./dist/esm/content/index.js",
+      "default": "./dist/esm/content/index.js"
     },
     "./prompts": {
       "types": "./dist/types/prompts/index.d.ts",
-      "import": "./dist/esm/prompts/index.js"
+      "development": "./src/prompts/index.ts",
+      "import": "./dist/esm/prompts/index.js",
+      "default": "./dist/esm/prompts/index.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "pnpm run build:esm",
