@@ -6,6 +6,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { loadLiteLlmCatalog, resolveLiteLlmPricingForModelId } from '../src/pricing/litellm.js'
 
 describe('LiteLLM pricing catalog', () => {
+  it('resolves pricing for common gateway-style ids', () => {
+    const catalog = {
+      'gpt-5.2': { input_cost_per_token: 0.00000175, output_cost_per_token: 0.000014 },
+      'claude-sonnet-4-5': { input_cost_per_token: 0.000003, output_cost_per_token: 0.000015 },
+      'gemini-3-flash-preview': { input_cost_per_token: 0.0000001, output_cost_per_token: 0.0000002 },
+      'xai/grok-4-fast-non-reasoning': { input_cost_per_token: 0.0000002, output_cost_per_token: 0.0000005 },
+    }
+
+    expect(resolveLiteLlmPricingForModelId(catalog, 'openai/gpt-5.2')).toEqual({
+      inputUsdPerToken: 0.00000175,
+      outputUsdPerToken: 0.000014,
+    })
+    expect(resolveLiteLlmPricingForModelId(catalog, 'anthropic/claude-sonnet-4-5')).toEqual({
+      inputUsdPerToken: 0.000003,
+      outputUsdPerToken: 0.000015,
+    })
+    expect(resolveLiteLlmPricingForModelId(catalog, 'google/gemini-3-flash-preview')).toEqual({
+      inputUsdPerToken: 0.0000001,
+      outputUsdPerToken: 0.0000002,
+    })
+    expect(resolveLiteLlmPricingForModelId(catalog, 'xai/grok-4-fast-non-reasoning')).toEqual({
+      inputUsdPerToken: 0.0000002,
+      outputUsdPerToken: 0.0000005,
+    })
+  })
+
+  it('returns null when token costs are missing', () => {
+    const catalog = {
+      'gpt-5.2': { input_cost_per_token: 0.1 },
+    }
+    expect(resolveLiteLlmPricingForModelId(catalog, 'openai/gpt-5.2')).toBeNull()
+  })
+
   it('does nothing without HOME (no cache, no network)', async () => {
     const fetchMock = vi.fn(async () => {
       throw new Error('unexpected fetch')
@@ -107,4 +140,3 @@ describe('LiteLLM pricing catalog', () => {
     })
   })
 })
-

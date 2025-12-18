@@ -105,6 +105,7 @@ summarize "https://example.com" --json
     - `xai/grok-4-fast-non-reasoning`
     - `openai/gpt-5.2`
     - `google/gemini-2.0-flash`
+    - `anthropic/claude-sonnet-4-5`
 - `--extract-only`: print extracted content and exit (never calls an LLM)
 - `--json`: emit a single JSON object instead of plain text
 - `--stream auto|on|off`
@@ -129,6 +130,7 @@ By default the CLI uses `xai/grok-4-fast-non-reasoning`, so you’ll want `XAI_A
 - `OPENAI_API_KEY` (required for `openai/...` models)
 - `GOOGLE_GENERATIVE_AI_API_KEY` (required for `google/...` models)
 - `GEMINI_API_KEY` (alias for `GOOGLE_GENERATIVE_AI_API_KEY`)
+- `ANTHROPIC_API_KEY` (required for `anthropic/...` models)
 - `SUMMARIZE_MODEL` (optional; overrides default model selection)
 - `SUMMARIZE_CONFIG` (optional; path to config file)
 

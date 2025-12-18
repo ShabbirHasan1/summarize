@@ -9,6 +9,9 @@ describe('model id parsing', () => {
     )
     expect(normalizeGatewayStyleModelId('openai/gpt-5.2')).toBe('openai/gpt-5.2')
     expect(normalizeGatewayStyleModelId('google/gemini-2.0-flash')).toBe('google/gemini-2.0-flash')
+    expect(normalizeGatewayStyleModelId('anthropic/claude-sonnet-4-5')).toBe(
+      'anthropic/claude-sonnet-4-5'
+    )
   })
 
   it('accepts historical grok aliases', () => {
@@ -24,6 +27,7 @@ describe('model id parsing', () => {
     expect(normalizeGatewayStyleModelId('grok-4')).toBe('xai/grok-4')
     expect(normalizeGatewayStyleModelId('gemini-2.0-flash')).toBe('google/gemini-2.0-flash')
     expect(normalizeGatewayStyleModelId('gpt-5.2')).toBe('openai/gpt-5.2')
+    expect(normalizeGatewayStyleModelId('claude-sonnet-4-5')).toBe('anthropic/claude-sonnet-4-5')
   })
 
   it('parses provider + model', () => {

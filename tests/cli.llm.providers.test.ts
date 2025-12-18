@@ -19,6 +19,9 @@ const createGoogleMock = vi.fn(({ apiKey }: { apiKey: string }) => {
 const createXaiMock = vi.fn(({ apiKey }: { apiKey: string }) => {
   return (modelId: string) => ({ provider: 'xai', modelId, apiKey })
 })
+const createAnthropicMock = vi.fn(({ apiKey }: { apiKey: string }) => {
+  return (modelId: string) => ({ provider: 'anthropic', modelId, apiKey })
+})
 
 vi.mock('ai', () => ({
   generateText: generateTextMock,
@@ -34,6 +37,10 @@ vi.mock('@ai-sdk/google', () => ({
 
 vi.mock('@ai-sdk/xai', () => ({
   createXai: createXaiMock,
+}))
+
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: createAnthropicMock,
 }))
 
 function collectStdout() {
@@ -53,6 +60,7 @@ describe('cli LLM provider selection (direct keys)', () => {
     createOpenAIMock.mockClear()
     createGoogleMock.mockClear()
     createXaiMock.mockClear()
+    createAnthropicMock.mockClear()
 
     const html =
       '<!doctype html><html><head><title>Hello</title></head>' +
@@ -80,6 +88,7 @@ describe('cli LLM provider selection (direct keys)', () => {
     expect(createOpenAIMock).toHaveBeenCalledTimes(1)
     expect(createGoogleMock).toHaveBeenCalledTimes(0)
     expect(createXaiMock).toHaveBeenCalledTimes(0)
+    expect(createAnthropicMock).toHaveBeenCalledTimes(0)
   })
 
   it('uses Google when --model is google/...', async () => {
@@ -87,6 +96,7 @@ describe('cli LLM provider selection (direct keys)', () => {
     createOpenAIMock.mockClear()
     createGoogleMock.mockClear()
     createXaiMock.mockClear()
+    createAnthropicMock.mockClear()
 
     const html =
       '<!doctype html><html><head><title>Hello</title></head>' +
@@ -114,6 +124,7 @@ describe('cli LLM provider selection (direct keys)', () => {
     expect(createOpenAIMock).toHaveBeenCalledTimes(0)
     expect(createGoogleMock).toHaveBeenCalledTimes(1)
     expect(createXaiMock).toHaveBeenCalledTimes(0)
+    expect(createAnthropicMock).toHaveBeenCalledTimes(0)
   })
 
   it('uses xAI when --model is xai/...', async () => {
@@ -121,6 +132,7 @@ describe('cli LLM provider selection (direct keys)', () => {
     createOpenAIMock.mockClear()
     createGoogleMock.mockClear()
     createXaiMock.mockClear()
+    createAnthropicMock.mockClear()
 
     const html =
       '<!doctype html><html><head><title>Hello</title></head>' +
@@ -151,5 +163,45 @@ describe('cli LLM provider selection (direct keys)', () => {
     expect(createOpenAIMock).toHaveBeenCalledTimes(0)
     expect(createGoogleMock).toHaveBeenCalledTimes(0)
     expect(createXaiMock).toHaveBeenCalledTimes(1)
+    expect(createAnthropicMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('uses Anthropic when --model is anthropic/...', async () => {
+    generateTextMock.mockReset().mockResolvedValue({ text: 'OK' })
+    createOpenAIMock.mockClear()
+    createGoogleMock.mockClear()
+    createXaiMock.mockClear()
+    createAnthropicMock.mockClear()
+
+    const html =
+      '<!doctype html><html><head><title>Hello</title></head>' +
+      '<body><article><p>Hi</p></article></body></html>'
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.url
+      if (url === 'https://example.com') return htmlResponse(html)
+      throw new Error(`Unexpected fetch call: ${url}`)
+    })
+
+    const out = collectStdout()
+    await runCli(
+      ['--model', 'anthropic/claude-sonnet-4-5', '--timeout', '2s', 'https://example.com'],
+      {
+        env: { ANTHROPIC_API_KEY: 'test' },
+        fetch: fetchMock as unknown as typeof fetch,
+        stdout: out.stdout,
+        stderr: new Writable({
+          write(_c, _e, cb) {
+            cb()
+          },
+        }),
+      }
+    )
+
+    expect(out.getText().trim()).toBe('OK')
+    expect(createOpenAIMock).toHaveBeenCalledTimes(0)
+    expect(createGoogleMock).toHaveBeenCalledTimes(0)
+    expect(createXaiMock).toHaveBeenCalledTimes(0)
+    expect(createAnthropicMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -42,6 +42,7 @@ export function createHtmlToMarkdownConverter({
   xaiApiKey,
   googleApiKey,
   openaiApiKey,
+  anthropicApiKey,
   fetchImpl,
   onUsage,
 }: {
@@ -50,7 +51,12 @@ export function createHtmlToMarkdownConverter({
   googleApiKey: string | null
   openaiApiKey: string | null
   fetchImpl: typeof fetch
-  onUsage?: (usage: { model: string; provider: 'xai' | 'openai' | 'google'; usage: LlmTokenUsage | null }) => void
+  anthropicApiKey: string | null
+  onUsage?: (usage: {
+    model: string
+    provider: 'xai' | 'openai' | 'google' | 'anthropic'
+    usage: LlmTokenUsage | null
+  }) => void
 }): ConvertHtmlToMarkdown {
   return async ({ url, html, title, siteName, timeoutMs }) => {
     const trimmedHtml =
@@ -64,7 +70,7 @@ export function createHtmlToMarkdownConverter({
 
     const result = await generateTextWithModelId({
       modelId,
-      apiKeys: { xaiApiKey, googleApiKey, openaiApiKey },
+      apiKeys: { xaiApiKey, googleApiKey, openaiApiKey, anthropicApiKey },
       system,
       prompt,
       temperature: 0,

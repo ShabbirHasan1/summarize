@@ -1,4 +1,4 @@
-export type LlmProvider = 'xai' | 'openai' | 'google'
+export type LlmProvider = 'xai' | 'openai' | 'google' | 'anthropic'
 
 export type ParsedModelId = {
   provider: LlmProvider
@@ -12,7 +12,7 @@ export type ParsedModelId = {
   canonical: string
 }
 
-const PROVIDERS: LlmProvider[] = ['xai', 'openai', 'google']
+const PROVIDERS: LlmProvider[] = ['xai', 'openai', 'google', 'anthropic']
 
 export function normalizeGatewayStyleModelId(raw: string): string {
   const trimmed = raw.trim()
@@ -31,6 +31,7 @@ export function normalizeGatewayStyleModelId(raw: string): string {
     // Best-effort inference for backwards-compat CLI usage.
     if (trimmed.startsWith('grok-')) return `xai/${trimmed}`
     if (trimmed.startsWith('gemini-')) return `google/${trimmed}`
+    if (trimmed.startsWith('claude-')) return `anthropic/${trimmed}`
     return `openai/${trimmed}`
   }
 
@@ -38,7 +39,7 @@ export function normalizeGatewayStyleModelId(raw: string): string {
   const model = trimmed.slice(slash + 1)
   if (!PROVIDERS.includes(provider as LlmProvider)) {
     throw new Error(
-      `Unsupported model provider "${provider}". Use xai/..., openai/..., or google/...`
+      `Unsupported model provider "${provider}". Use xai/..., openai/..., google/..., or anthropic/...`
     )
   }
   if (model.trim().length === 0) {

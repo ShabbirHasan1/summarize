@@ -92,13 +92,19 @@ describe('cli --json', () => {
 
     expect(stderrText).toContain('Finished in')
     const parsed = JSON.parse(stdoutText) as {
-      env: { hasXaiKey: boolean; hasOpenAIKey: boolean; hasGoogleKey: boolean }
+      env: {
+        hasXaiKey: boolean
+        hasOpenAIKey: boolean
+        hasGoogleKey: boolean
+        hasAnthropicKey: boolean
+      }
       llm: unknown
       summary: unknown
     }
     expect(parsed.env.hasXaiKey).toBe(false)
     expect(parsed.env.hasOpenAIKey).toBe(false)
     expect(parsed.env.hasGoogleKey).toBe(false)
+    expect(parsed.env.hasAnthropicKey).toBe(false)
     expect(parsed.llm).toBeNull()
     expect(parsed.summary).toBeNull()
   })

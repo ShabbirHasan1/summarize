@@ -4,6 +4,7 @@ export type LlmApiKeys = {
   xaiApiKey: string | null
   openaiApiKey: string | null
   googleApiKey: string | null
+  anthropicApiKey: string | null
 }
 
 export type LlmTokenUsage = {
@@ -58,7 +59,7 @@ export async function generateTextWithModelId({
 }): Promise<{
   text: string
   canonicalModelId: string
-  provider: 'xai' | 'openai' | 'google'
+  provider: 'xai' | 'openai' | 'google' | 'anthropic'
   usage: LlmTokenUsage | null
 }> {
   const parsed = parseGatewayStyleModelId(modelId)
@@ -97,6 +98,27 @@ export async function generateTextWithModelId({
       const google = createGoogleGenerativeAI({ apiKey, fetch: fetchImpl })
       const result = await generateText({
         model: google(parsed.model),
+        system,
+        prompt,
+        temperature,
+        maxOutputTokens,
+        abortSignal: controller.signal,
+      })
+      return {
+        text: result.text,
+        canonicalModelId: parsed.canonical,
+        provider: parsed.provider,
+        usage: normalizeTokenUsage((result as unknown as { usage?: unknown }).usage),
+      }
+    }
+
+    if (parsed.provider === 'anthropic') {
+      const apiKey = apiKeys.anthropicApiKey
+      if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY for anthropic/... model')
+      const { createAnthropic } = await import('@ai-sdk/anthropic')
+      const anthropic = createAnthropic({ apiKey, fetch: fetchImpl })
+      const result = await generateText({
+        model: anthropic(parsed.model),
         system,
         prompt,
         temperature,
@@ -160,7 +182,7 @@ export async function streamTextWithModelId({
 }): Promise<{
   textStream: AsyncIterable<string>
   canonicalModelId: string
-  provider: 'xai' | 'openai' | 'google'
+  provider: 'xai' | 'openai' | 'google' | 'anthropic'
   usage: Promise<LlmTokenUsage | null>
 }> {
   const parsed = parseGatewayStyleModelId(modelId)
@@ -199,6 +221,27 @@ export async function streamTextWithModelId({
       const google = createGoogleGenerativeAI({ apiKey, fetch: fetchImpl })
       const result = streamText({
         model: google(parsed.model),
+        system,
+        prompt,
+        temperature,
+        maxOutputTokens,
+        abortSignal: controller.signal,
+      })
+      return {
+        textStream: result.textStream,
+        canonicalModelId: parsed.canonical,
+        provider: parsed.provider,
+        usage: result.totalUsage.then((raw) => normalizeTokenUsage(raw)),
+      }
+    }
+
+    if (parsed.provider === 'anthropic') {
+      const apiKey = apiKeys.anthropicApiKey
+      if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY for anthropic/... model')
+      const { createAnthropic } = await import('@ai-sdk/anthropic')
+      const anthropic = createAnthropic({ apiKey, fetch: fetchImpl })
+      const result = streamText({
+        model: anthropic(parsed.model),
         system,
         prompt,
         temperature,

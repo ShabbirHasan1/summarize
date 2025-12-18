@@ -54,6 +54,7 @@
     "sanitize-html": "^2.17.0"
   },
   "devDependencies": {
+    "@ai-sdk/anthropic": "^2.0.35",
     "@ai-sdk/google": "^2.0.49",
     "@ai-sdk/openai": "^2.0.88",
     "@ai-sdk/xai": "^2.0.28",

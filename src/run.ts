@@ -47,11 +47,12 @@ type JsonOutput = {
     hasApifyToken: boolean
     hasFirecrawlKey: boolean
     hasGoogleKey: boolean
+    hasAnthropicKey: boolean
   }
   extracted: unknown
   prompt: string
   llm: {
-    provider: 'xai' | 'openai' | 'google'
+    provider: 'xai' | 'openai' | 'google' | 'anthropic'
     model: string
     maxCompletionTokens: number
     strategy: 'single' | 'map-reduce'
@@ -183,6 +184,7 @@ ${heading('Env Vars')}
   XAI_API_KEY           optional (required for xai/... models)
   OPENAI_API_KEY        optional (required for openai/... models)
   GOOGLE_GENERATIVE_AI_API_KEY optional (required for google/... models)
+  ANTHROPIC_API_KEY     optional (required for anthropic/... models)
   SUMMARIZE_MODEL       optional (overrides default model selection)
   SUMMARIZE_CONFIG      optional (path to config.json)
   FIRECRAWL_API_KEY     optional website extraction fallback (Markdown)
@@ -204,10 +206,15 @@ async function summarizeWithModelId({
   maxOutputTokens: number
   timeoutMs: number
   fetchImpl: typeof fetch
-  apiKeys: { xaiApiKey: string | null; openaiApiKey: string | null; googleApiKey: string | null }
+  apiKeys: {
+    xaiApiKey: string | null
+    openaiApiKey: string | null
+    googleApiKey: string | null
+    anthropicApiKey: string | null
+  }
 }): Promise<{
   text: string
-  provider: 'xai' | 'openai' | 'google'
+  provider: 'xai' | 'openai' | 'google' | 'anthropic'
   canonicalModelId: string
   usage: Awaited<ReturnType<typeof generateTextWithModelId>>['usage']
 }> {
@@ -332,7 +339,7 @@ function writeFinishLine({
   report: ReturnType<typeof buildRunCostReport>
 }): void {
   const fmtUsd = (value: number | null) =>
-    typeof value === 'number' && Number.isFinite(value) ? `$${value.toFixed(4)}` : 'unknown'
+    typeof value === 'number' && Number.isFinite(value) ? `$${value.toFixed(2)}` : 'unknown'
   const promptTokens = sumNumbersOrNull(report.llm.map((row) => row.promptTokens))
   const completionTokens = sumNumbersOrNull(report.llm.map((row) => row.completionTokens))
   const totalTokens = sumNumbersOrNull(report.llm.map((row) => row.totalTokens))
@@ -453,6 +460,8 @@ export async function runCli(
   const apiKey = typeof env.OPENAI_API_KEY === 'string' ? env.OPENAI_API_KEY : null
   const apifyToken = typeof env.APIFY_API_TOKEN === 'string' ? env.APIFY_API_TOKEN : null
   const firecrawlKey = typeof env.FIRECRAWL_API_KEY === 'string' ? env.FIRECRAWL_API_KEY : null
+  const anthropicKeyRaw =
+    typeof env.ANTHROPIC_API_KEY === 'string' ? env.ANTHROPIC_API_KEY : null
   const googleKeyRaw =
     typeof env.GOOGLE_GENERATIVE_AI_API_KEY === 'string'
       ? env.GOOGLE_GENERATIVE_AI_API_KEY
@@ -466,8 +475,11 @@ export async function runCli(
   const firecrawlConfigured = firecrawlApiKey !== null
   const xaiApiKey = xaiKeyRaw?.trim() ?? null
   const googleApiKey = googleKeyRaw?.trim() ?? null
+  const anthropicApiKey = anthropicKeyRaw?.trim() ?? null
   const googleConfigured = typeof googleApiKey === 'string' && googleApiKey.length > 0
   const xaiConfigured = typeof xaiApiKey === 'string' && xaiApiKey.length > 0
+  const anthropicConfigured =
+    typeof anthropicApiKey === 'string' && anthropicApiKey.length > 0
 
   const llmCalls: LlmCall[] = []
   let firecrawlRequests = 0
@@ -541,7 +553,7 @@ export async function runCli(
   const streamingEnabled = effectiveStreamMode === 'on' && !json && !extractOnly
   const writeCostReport = (report: ReturnType<typeof buildRunCostReport>) => {
     const fmtUsd = (value: number | null) =>
-      typeof value === 'number' && Number.isFinite(value) ? `$${value.toFixed(4)}` : 'unknown'
+      typeof value === 'number' && Number.isFinite(value) ? `$${value.toFixed(2)}` : 'unknown'
 
     for (const row of report.llm) {
       stderr.write(
@@ -589,6 +601,8 @@ export async function runCli(
       ? xaiConfigured
       : parsedModelForLlm.provider === 'google'
         ? googleConfigured
+        : parsedModelForLlm.provider === 'anthropic'
+          ? anthropicConfigured
         : Boolean(apiKey)
   const markdownProvider = hasKeyForModel ? parsedModelForLlm.provider : 'none'
 
@@ -598,6 +612,8 @@ export async function runCli(
         ? 'XAI_API_KEY'
         : parsedModelForLlm.provider === 'google'
           ? 'GOOGLE_GENERATIVE_AI_API_KEY'
+          : parsedModelForLlm.provider === 'anthropic'
+            ? 'ANTHROPIC_API_KEY'
           : 'OPENAI_API_KEY'
     throw new Error(`--markdown llm requires ${required} for model ${parsedModelForLlm.canonical}`)
   }
@@ -621,7 +637,7 @@ export async function runCli(
   writeVerbose(
     stderr,
     verbose,
-    `env xaiKey=${xaiConfigured} openaiKey=${Boolean(apiKey)} googleKey=${googleConfigured} apifyToken=${Boolean(apifyToken)} firecrawlKey=${firecrawlConfigured}`,
+    `env xaiKey=${xaiConfigured} openaiKey=${Boolean(apiKey)} googleKey=${googleConfigured} anthropicKey=${anthropicConfigured} apifyToken=${Boolean(apifyToken)} firecrawlKey=${firecrawlConfigured}`,
     verboseColor
   )
   writeVerbose(
@@ -643,6 +659,7 @@ export async function runCli(
           xaiApiKey: xaiConfigured ? xaiApiKey : null,
           googleApiKey: googleConfigured ? googleApiKey : null,
           openaiApiKey: apiKey,
+          anthropicApiKey: anthropicConfigured ? anthropicApiKey : null,
           fetchImpl: trackedFetch,
           onUsage: ({ model: usedModel, provider, usage }) => {
             llmCalls.push({ provider, model: usedModel, usage, purpose: 'markdown' })
@@ -750,6 +767,7 @@ export async function runCli(
           hasApifyToken: Boolean(apifyToken),
           hasFirecrawlKey: firecrawlConfigured,
           hasGoogleKey: googleConfigured,
+          hasAnthropicKey: anthropicConfigured,
         },
         extracted,
         prompt,
@@ -791,6 +809,7 @@ export async function runCli(
     xaiApiKey,
     openaiApiKey: apiKey,
     googleApiKey: googleConfigured ? googleApiKey : null,
+    anthropicApiKey: anthropicConfigured ? anthropicApiKey : null,
   }
 
   const requiredKeyEnv =
@@ -798,12 +817,16 @@ export async function runCli(
       ? 'XAI_API_KEY'
       : parsedModel.provider === 'google'
         ? 'GOOGLE_GENERATIVE_AI_API_KEY'
+        : parsedModel.provider === 'anthropic'
+          ? 'ANTHROPIC_API_KEY'
         : 'OPENAI_API_KEY'
   const hasRequiredKey =
     parsedModel.provider === 'xai'
       ? Boolean(xaiApiKey)
       : parsedModel.provider === 'google'
         ? googleConfigured
+        : parsedModel.provider === 'anthropic'
+          ? anthropicConfigured
         : Boolean(apiKey)
   if (!hasRequiredKey) {
     throw new Error(
@@ -1037,6 +1060,7 @@ export async function runCli(
         hasApifyToken: Boolean(apifyToken),
         hasFirecrawlKey: firecrawlConfigured,
         hasGoogleKey: googleConfigured,
+        hasAnthropicKey: anthropicConfigured,
       },
       extracted,
       prompt,
