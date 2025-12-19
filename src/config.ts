@@ -5,7 +5,7 @@ import { join } from 'node:path'
 export type SummarizeConfig = {
   /**
    * Gateway-style model id, e.g.:
-   * - xai/grok-4-fast-non-reasoning
+   * - google/gemini-3-flash-preview
    * - openai/gpt-5.2
    * - google/gemini-2.0-flash
    */

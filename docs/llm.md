@@ -4,7 +4,7 @@ By default `summarize` will call an LLM using **direct provider API keys**.
 
 ## Defaults
 
-- Default model: `xai/grok-4-fast-non-reasoning`
+- Default model: `google/gemini-3-flash-preview`
 - Override with `SUMMARIZE_MODEL`, config file (`model`), or `--model`.
 
 ## Env
@@ -19,8 +19,9 @@ By default `summarize` will call an LLM using **direct provider API keys**.
 
 - `--model <model>`
   - Examples:
-    - `xai/grok-4-fast-non-reasoning`
+    - `google/gemini-3-flash-preview`
     - `openai/gpt-5.2`
+    - `xai/grok-4-fast-non-reasoning`
     - `google/gemini-2.0-flash`
     - `anthropic/claude-sonnet-4-5`
 - `--length short|medium|long|xl|xxl|<chars>`

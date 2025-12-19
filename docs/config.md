@@ -15,7 +15,7 @@ For `model`:
 1. CLI flag `--model`
 2. Env `SUMMARIZE_MODEL`
 3. Config file `model`
-4. Built-in default (`xai/grok-4-fast-non-reasoning`)
+4. Built-in default (`google/gemini-3-flash-preview`)
 
 ## Format
 
@@ -23,6 +23,6 @@ For `model`:
 
 ```json
 {
-  "model": "xai/grok-4-fast-non-reasoning"
+  "model": "google/gemini-3-flash-preview"
 }
 ```

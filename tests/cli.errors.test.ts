@@ -58,7 +58,7 @@ describe('cli error handling', () => {
         stdout: noopStream(),
         stderr: noopStream(),
       })
-    ).rejects.toThrow(/--markdown llm requires XAI_API_KEY/)
+    ).rejects.toThrow(/--markdown llm requires GOOGLE_GENERATIVE_AI_API_KEY/)
   })
 
   it('does not error for --markdown auto without keys', async () => {
@@ -98,7 +98,7 @@ describe('cli error handling', () => {
         stdout: noopStream(),
         stderr: noopStream(),
       })
-    ).rejects.toThrow(/Missing XAI_API_KEY/)
+    ).rejects.toThrow(/Missing GOOGLE_GENERATIVE_AI_API_KEY/)
   })
 
   it('errors when --raw is combined with --firecrawl or --markdown', async () => {
