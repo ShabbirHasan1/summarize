@@ -14,21 +14,9 @@ importers:
       es-toolkit:
         specifier: ^1.43.0
         version: 1.43.0
-      file-type:
-        specifier: ^21.1.1
-        version: 21.1.1
-      mime:
-        specifier: ^4.1.0
-        version: 4.1.0
-      osc-progress:
-        specifier: ^0.1.0
-        version: 0.1.0
       sanitize-html:
         specifier: ^2.17.0
         version: 2.17.0
-      tokentally:
-        specifier: github:steipete/tokentally#v0.1.0
-        version: https://codeload.github.com/steipete/tokentally/tar.gz/99865e5c16f5340c9589a2c5d85c3ea47dbcec82
     devDependencies:
       '@ai-sdk/anthropic':
         specifier: 3.0.0-beta.91
@@ -63,12 +51,24 @@ importers:
       esbuild:
         specifier: ^0.27.2
         version: 0.27.2
+      file-type:
+        specifier: ^21.1.1
+        version: 21.1.1
       markdansi:
         specifier: 0.1.7
         version: 0.1.7
+      mime:
+        specifier: ^4.1.0
+        version: 4.1.0
       ora:
         specifier: ^9.0.0
         version: 9.0.0
+      osc-progress:
+        specifier: ^0.1.0
+        version: 0.1.0
+      tokentally:
+        specifier: github:steipete/tokentally#v0.1.0
+        version: https://codeload.github.com/steipete/tokentally/tar.gz/99865e5c16f5340c9589a2c5d85c3ea47dbcec82
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
