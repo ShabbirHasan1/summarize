@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 
 declare const __dirname: string | undefined
 
+export const FALLBACK_VERSION = '0.1.0'
+
 export function resolvePackageVersion(importMetaUrl?: string): string {
   const injected =
     typeof process !== 'undefined' && typeof process.env.SUMMARIZE_VERSION === 'string'
@@ -43,5 +45,5 @@ export function resolvePackageVersion(importMetaUrl?: string): string {
     dir = parent
   }
 
-  return '0.0.0'
+  return FALLBACK_VERSION
 }

@@ -35,6 +35,8 @@
     "build": "pnpm build:lib && pnpm build:cli",
     "build:lib": "tsc -p tsconfig.build.json",
     "build:cli": "node scripts/build-cli.mjs",
+    "build:bun": "bun scripts/build-bun.js",
+    "build:bun:test": "bun scripts/build-bun.js --test",
     "prepare": "pnpm build",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "summarize": "tsx src/cli.ts",

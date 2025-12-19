@@ -184,6 +184,16 @@ function terminalWidth(
   return 80
 }
 
+function markdownRenderWidth(
+  stream: NodeJS.WritableStream,
+  env: Record<string, string | undefined>
+): number {
+  // Avoid “phantom blank lines” from terminal auto-wrap when the rendered line hits the exact width.
+  // Wrap 1 column earlier so explicit newlines don't combine with terminal soft-wrap.
+  const w = terminalWidth(stream, env)
+  return Math.max(20, w - 1)
+}
+
 function ansi(code: string, input: string, enabled: boolean): string {
   if (!enabled) return input
   return `\u001b[${code}m${input}\u001b[0m`
@@ -387,7 +397,7 @@ ${heading('Examples')}
 ${heading('Env Vars')}
   XAI_API_KEY           optional (required for xai/... models)
   OPENAI_API_KEY        optional (required for openai/... models)
-  GOOGLE_GENERATIVE_AI_API_KEY optional (required for google/... models; also accepts GEMINI_API_KEY / GOOGLE_API_KEY)
+  GEMINI_API_KEY        optional (required for google/... models)
   ANTHROPIC_API_KEY     optional (required for anthropic/... models)
   SUMMARIZE_MODEL       optional (overrides default model selection)
   FIRECRAWL_API_KEY     optional website extraction fallback (Markdown)
@@ -679,10 +689,10 @@ export async function runCli(
   const firecrawlKey = typeof env.FIRECRAWL_API_KEY === 'string' ? env.FIRECRAWL_API_KEY : null
   const anthropicKeyRaw = typeof env.ANTHROPIC_API_KEY === 'string' ? env.ANTHROPIC_API_KEY : null
   const googleKeyRaw =
-    typeof env.GOOGLE_GENERATIVE_AI_API_KEY === 'string'
-      ? env.GOOGLE_GENERATIVE_AI_API_KEY
-      : typeof env.GEMINI_API_KEY === 'string'
-        ? env.GEMINI_API_KEY
+    typeof env.GEMINI_API_KEY === 'string'
+      ? env.GEMINI_API_KEY
+      : typeof env.GOOGLE_GENERATIVE_AI_API_KEY === 'string'
+        ? env.GOOGLE_GENERATIVE_AI_API_KEY
         : typeof env.GOOGLE_API_KEY === 'string'
           ? env.GOOGLE_API_KEY
           : null
@@ -959,10 +969,10 @@ export async function runCli(
                 clearProgressForStdout()
                 stdout.write(chunk)
               },
-              width: terminalWidth(stdout, env),
+              width: markdownRenderWidth(stdout, env),
               renderFrame: (markdown) =>
                 renderMarkdownAnsi(markdown, {
-                  width: terminalWidth(stdout, env),
+                  width: markdownRenderWidth(stdout, env),
                   wrap: true,
                   color: supportsColor(stdout, env),
                 }),
@@ -1145,7 +1155,7 @@ export async function runCli(
       const rendered =
         (effectiveRenderMode === 'md' || effectiveRenderMode === 'md-live') && isRichTty(stdout)
           ? renderMarkdownAnsi(summary, {
-              width: terminalWidth(stdout, env),
+              width: markdownRenderWidth(stdout, env),
               wrap: true,
               color: supportsColor(stdout, env),
             })
@@ -1663,10 +1673,10 @@ export async function runCli(
                   clearProgressForStdout()
                   stdout.write(chunk)
                 },
-                width: terminalWidth(stdout, env),
+                width: markdownRenderWidth(stdout, env),
                 renderFrame: (markdown) =>
                   renderMarkdownAnsi(markdown, {
-                    width: terminalWidth(stdout, env),
+                    width: markdownRenderWidth(stdout, env),
                     wrap: true,
                     color: supportsColor(stdout, env),
                   }),
@@ -1870,10 +1880,10 @@ export async function runCli(
                   clearProgressForStdout()
                   stdout.write(chunk)
                 },
-                width: terminalWidth(stdout, env),
+                width: markdownRenderWidth(stdout, env),
                 renderFrame: (markdown) =>
                   renderMarkdownAnsi(markdown, {
-                    width: terminalWidth(stdout, env),
+                    width: markdownRenderWidth(stdout, env),
                     wrap: true,
                     color: supportsColor(stdout, env),
                   }),
@@ -2016,7 +2026,7 @@ export async function runCli(
       const rendered =
         (effectiveRenderMode === 'md' || effectiveRenderMode === 'md-live') && isRichTty(stdout)
           ? renderMarkdownAnsi(summary, {
-              width: terminalWidth(stdout, env),
+              width: markdownRenderWidth(stdout, env),
               wrap: true,
               color: supportsColor(stdout, env),
             })
