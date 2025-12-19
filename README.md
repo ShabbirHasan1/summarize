@@ -20,7 +20,7 @@ npx -y @steipete/summarize "https://example.com" --model google/gemini-3-flash-p
 - Homebrew (custom tap):
 
 ```bash
-brew tap steipete/tap && brew install steipete/tap/summarize
+brew install steipete/tap/summarize
 ```
 
 ## Quickstart
