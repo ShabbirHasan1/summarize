@@ -17,6 +17,7 @@
 - Fall back to non-streaming when streaming requests time out.
 - Preserve parentheses in URL paths when resolving inputs.
 - Stop forcing Firecrawl for --extract-only; only use it as a fallback.
+- Avoid Firecrawl fallback when block keywords only appear in scripts/styles.
 
 ### Tests
 

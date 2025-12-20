@@ -73,6 +73,37 @@ describe('link preview extraction (Firecrawl fallback)', () => {
     expect(scrapeWithFirecrawl).not.toHaveBeenCalled()
   })
 
+  it('does not call Firecrawl when blocked markers only appear in scripts', async () => {
+    const html =
+      '<!doctype html><html><head><title>Ok</title></head><body>' +
+      `<article><p>${'A'.repeat(280)}</p></article>` +
+      '<script>window.guard="captcha";</script>' +
+      '</body></html>'
+
+    const scrapeWithFirecrawl = vi.fn(async () => ({
+      markdown: '# Should not run',
+      html: null,
+      metadata: null,
+    }))
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.url
+      if (url === 'https://example.com') {
+        return htmlResponse(html)
+      }
+      throw new Error(`Unexpected fetch call: ${url}`)
+    })
+
+    const client = createLinkPreviewClient({
+      fetch: fetchMock as unknown as typeof fetch,
+      scrapeWithFirecrawl,
+    })
+
+    const result = await client.fetchLinkContent('https://example.com', { timeoutMs: 2000 })
+    expect(result.diagnostics.strategy).toBe('html')
+    expect(scrapeWithFirecrawl).not.toHaveBeenCalled()
+  })
+
   it('falls back to Firecrawl when extracted HTML looks thin but document is large', async () => {
     const html =
       '<!doctype html><html><head><title>App Shell</title></head><body><main>' +

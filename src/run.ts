@@ -111,7 +111,7 @@ function buildProgram() {
     )
     .option(
       '--markdown <mode>',
-      'Website Markdown output: off, auto (prefer Firecrawl, then LLM when configured), llm (force LLM). Only affects --extract-only for non-YouTube URLs.',
+      'Website Markdown output: off, auto (use LLM when configured), llm (force LLM). Only affects --extract-only for non-YouTube URLs.',
       'auto'
     )
     .option(
@@ -414,7 +414,7 @@ function attachRichHelp(
     () => `
 ${heading('Examples')}
   ${cmd('summarize "https://example.com"')}
-  ${cmd('summarize "https://example.com" --extract-only')} ${dim('# website markdown (prefers Firecrawl when configured)')}
+  ${cmd('summarize "https://example.com" --extract-only')} ${dim('# website markdown (LLM if configured)')}
   ${cmd('summarize "https://example.com" --extract-only --markdown llm')} ${dim('# website markdown via LLM')}
   ${cmd('summarize "https://www.youtube.com/watch?v=I845O57ZSy4&t=11s" --extract-only --youtube web')}
   ${cmd('summarize "https://example.com" --length 20k --max-output-tokens 2k --timeout 2m --model openai/gpt-5.2')}

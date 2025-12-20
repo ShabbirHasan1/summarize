@@ -2,7 +2,11 @@ import type { FirecrawlScrapeResult, LinkPreviewDeps } from '../deps.js'
 import { resolveTranscriptForLink } from '../transcript/index.js'
 import { extractYouTubeVideoId, isYouTubeUrl, isYouTubeVideoUrl } from '../transcript/utils.js'
 import type { FirecrawlDiagnostics, MarkdownDiagnostics } from '../types.js'
-import { extractArticleContent, sanitizeHtmlForMarkdownConversion } from './article.js'
+import {
+  extractArticleContent,
+  extractPlainText,
+  sanitizeHtmlForMarkdownConversion,
+} from './article.js'
 import { normalizeForPrompt } from './cleaner.js'
 import { fetchHtmlDocument, fetchWithFirecrawl } from './fetcher.js'
 import { extractMetadataFromFirecrawl, extractMetadataFromHtml } from './parsers.js'
@@ -48,9 +52,8 @@ function stripLeadingTitle(content: string, title: string | null | undefined): s
 }
 
 function shouldFallbackToFirecrawl(html: string): boolean {
-  if (BLOCKED_HTML_HINT_PATTERN.test(html)) {
-    return true
-  }
+  const plainText = normalizeForPrompt(extractPlainText(html))
+  if (BLOCKED_HTML_HINT_PATTERN.test(plainText)) return true
   const normalized = normalizeForPrompt(extractArticleContent(html))
   if (normalized.length >= MIN_HTML_CONTENT_CHARACTERS) {
     return false
