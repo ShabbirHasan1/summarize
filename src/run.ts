@@ -1456,6 +1456,9 @@ export async function runCli(
       const elapsedMs =
         typeof state.fetchStartedAtMs === 'number' ? Date.now() - state.fetchStartedAtMs : 0
       const elapsed = formatElapsedMs(elapsedMs)
+      if (state.htmlDownloadedBytes === 0 && !state.htmlTotalBytes) {
+        return `Fetching website (connecting, ${elapsed})…`
+      }
       const rate =
         elapsedMs > 0 && state.htmlDownloadedBytes > 0
           ? `, ${formatBytes(state.htmlDownloadedBytes / (elapsedMs / 1000))}/s`
