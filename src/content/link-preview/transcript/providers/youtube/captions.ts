@@ -316,25 +316,11 @@ const extractTranscriptFromPlayerPayload = async (
       ...automaticTracks.filter((track): track is Record<string, unknown> => isObjectLike(track))
     )
   }
-  const seenLanguages = new Set<string>()
-  const normalizedTracks: Record<string, unknown>[] = []
-  for (const candidate of orderedTracks) {
-    if (!isObjectLike(candidate)) {
-      continue
-    }
-    const trackRecord = candidate as CaptionTrackRecord
-    const languageCandidate = trackRecord.languageCode
-    const lang = typeof languageCandidate === 'string' ? languageCandidate.toLowerCase() : ''
-    if (lang && seenLanguages.has(lang)) {
-      continue
-    }
-    if (lang) {
-      seenLanguages.add(lang)
-    }
-    normalizedTracks.push(candidate)
-  }
+  const filteredTracks = orderedTracks.filter(
+    (track): track is Record<string, unknown> => isObjectLike(track)
+  )
 
-  const sortedTracks = [...normalizedTracks].toSorted((a, b) => {
+  const sortedTracks = [...filteredTracks].toSorted((a, b) => {
     const aTrack = a as CaptionTrackRecord
     const bTrack = b as CaptionTrackRecord
     const aKind = typeof aTrack.kind === 'string' ? aTrack.kind : ''
@@ -357,7 +343,22 @@ const extractTranscriptFromPlayerPayload = async (
     return 0
   })
 
-  return await findFirstTranscript(fetchImpl, sortedTracks, 0)
+  const seenLanguages = new Set<string>()
+  const normalizedTracks: Record<string, unknown>[] = []
+  for (const candidate of sortedTracks) {
+    const trackRecord = candidate as CaptionTrackRecord
+    const languageCandidate = trackRecord.languageCode
+    const lang = typeof languageCandidate === 'string' ? languageCandidate.toLowerCase() : ''
+    if (lang && seenLanguages.has(lang)) {
+      continue
+    }
+    if (lang) {
+      seenLanguages.add(lang)
+    }
+    normalizedTracks.push(candidate)
+  }
+
+  return await findFirstTranscript(fetchImpl, normalizedTracks, 0)
 }
 
 const findFirstTranscript = async (

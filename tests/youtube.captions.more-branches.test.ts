@@ -54,6 +54,51 @@ describe('YouTube captionTracks extra branches', () => {
     expect(transcript).toBe('Hello world')
   })
 
+  it('prefers manual captions over ASR for the same language', async () => {
+    const html =
+      '<!doctype html><html><head><title>Sample</title>' +
+      '<script>var ytInitialPlayerResponse = {"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[' +
+      '{"languageCode":"en","kind":"asr","baseUrl":"https://example.com/captions-asr"},' +
+      '{"languageCode":"en","baseUrl":"https://example.com/captions-manual"}' +
+      ']}}};</script>' +
+      '</head><body></body></html>'
+
+    const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>((input) => {
+      const url = typeof input === 'string' ? input : input.url
+
+      if (url.startsWith('https://example.com/captions-asr') && url.includes('fmt=json3')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [{ segs: [{ utf8: 'Auto' }] }] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      }
+
+      if (url.startsWith('https://example.com/captions-manual') && url.includes('fmt=json3')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [{ segs: [{ utf8: 'Manual' }] }] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      }
+
+      throw new Error(`Unexpected fetch call: ${url}`)
+    })
+
+    const transcript = await fetchTranscriptFromCaptionTracks(
+      fetchMock as unknown as typeof fetch,
+      {
+        html,
+        originalUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+        videoId: 'abcdefghijk',
+      }
+    )
+
+    expect(transcript).toBe('Manual')
+  })
+
   it('handles invalid baseUrl and falls back to XML via string URL builder', async () => {
     const html =
       '<!doctype html><html><head><title>Sample</title>' +

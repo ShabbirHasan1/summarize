@@ -5,6 +5,7 @@
 ### Fixes
 
 - Deduplicate overlapping/cumulative streaming chunks to prevent repeated sections in live Markdown output.
+- Prefer manual YouTube captions over auto-generated when both exist. Thanks @dougvk.
 
 ### Docs
 
