@@ -1,16 +1,43 @@
 # Changelog
 
-## 0.4.1 - Unreleased
+## 0.5.0 - 2025-12-22
+
+### Breaking
+
+- Default model is now `auto` (instead of a fixed default like `google/gemini-3-flash-preview`).
+- Config: legacy top-level `"auto"` is no longer supported; configure via `"model": { "mode": "auto", "rules": [...] }`.
+- Config: JSON5 parsing remains, but comments (`//`, `/* */`) are rejected.
+
+### Features
+
+- Automatic model selection (`--model auto`, now the default):
+  - Chooses models based on input kind (website/YouTube/file/image/video/text) and prompt size.
+  - Skips candidates without API keys; retries next model on request errors.
+  - Adds OpenRouter fallback attempts when `OPENROUTER_API_KEY` is present.
+  - Shows the chosen model in the progress UI.
+- Free-only model selection: `--model free` (alias `--model 3`) uses OpenRouter `:free` models only.
+- Website extraction detects video-only pages:
+  - YouTube embeds switch to transcript extraction automatically.
+  - Direct video URLs can be downloaded + summarized when `--video-mode auto|understand` and a Gemini key is available.
+- `.env` in the current directory is loaded automatically (so API keys work without exporting env vars).
+- Shortcut: when extracted input tokens are <= requested output tokens, the CLI prints extracted text directly (no LLM call).
 
 ### Fixes
 
-- Deduplicate overlapping/cumulative streaming chunks to prevent repeated sections in live Markdown output.
-- Prefer manual YouTube captions over auto-generated when both exist. Thanks @dougvk.
+- LLM request retries (`--retries`) and clearer timeout errors.
+- Streaming output: normalize + de-dupe overlapping chunks to prevent repeated sections in live Markdown output.
+- YouTube captions: prefer manual captions over auto-generated when both exist. Thanks @dougvk.
 
 ### Docs
 
-- Update README for the new Markdown/extract/preprocess flags.
-- Improve release checklist notes (avoid literal `\\n` in GitHub release bodies).
+- Add documentation for auto model selection and free mode.
+- Add a manual end-to-end checklist (`docs/manual-tests.md`).
+- Add a quick CLI smoke checklist (`docs/smoketest.md`).
+- Update README and releasing notes for the new defaults and flags.
+
+### Tests
+
+- Add coverage for auto/free selection, config parsing, and fallback behavior.
 
 ## 0.4.0 - 2025-12-21
 
