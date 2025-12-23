@@ -29,9 +29,9 @@ vi.mock('../src/llm/generate-text.js', () => ({
   }),
 }))
 
-describe('model bags: OpenRouter "no allowed providers" beats timeout', () => {
+describe('model presets: OpenRouter "no allowed providers" beats timeout', () => {
   it('throws OpenRouter providers hint even if the last attempt times out', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'summarize-bag-providers-'))
+    const root = mkdtempSync(join(tmpdir(), 'summarize-preset-providers-'))
     const filePath = join(root, 'input.txt')
     writeFileSync(filePath, 'hello world', 'utf8')
     mkdirSync(join(root, '.summarize'), { recursive: true })

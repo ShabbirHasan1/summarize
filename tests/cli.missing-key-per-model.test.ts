@@ -16,7 +16,7 @@ const noopStream = () =>
   })
 
 describe('cli missing API key errors', () => {
-  it('errors when a bag uses OpenRouter but OPENROUTER_API_KEY is missing', async () => {
+  it('errors when a preset uses OpenRouter but OPENROUTER_API_KEY is missing', async () => {
     const root = mkdtempSync(join(tmpdir(), 'summarize-missing-key-'))
     mkdirSync(join(root, '.summarize'), { recursive: true })
     writeFileSync(

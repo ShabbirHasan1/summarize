@@ -59,12 +59,14 @@ describe('config loading', () => {
     })
   })
 
-  it('supports model shorthand strings ("auto", bag, provider/model)', () => {
+  it('supports model shorthand strings ("auto", preset, provider/model)', () => {
     const { root, configPath } = writeJsonConfig({ model: 'auto' })
     expect(loadSummarizeConfig({ env: { HOME: root } }).config).toEqual({ model: { mode: 'auto' } })
 
     writeFileSync(configPath, JSON.stringify({ model: 'mybag' }), 'utf8')
-    expect(loadSummarizeConfig({ env: { HOME: root } }).config).toEqual({ model: { bag: 'mybag' } })
+    expect(loadSummarizeConfig({ env: { HOME: root } }).config).toEqual({
+      model: { name: 'mybag' },
+    })
 
     writeFileSync(configPath, JSON.stringify({ model: 'openai/gpt-5-mini' }), 'utf8')
     expect(loadSummarizeConfig({ env: { HOME: root } }).config).toEqual({
@@ -123,7 +125,7 @@ describe('config loading', () => {
     )
   })
 
-  it('rejects model configs without id, bag, or auto mode', () => {
+  it('rejects model configs without id, name, or auto mode', () => {
     const { root } = writeJsonConfig({ model: {} })
     expect(() => loadSummarizeConfig({ env: { HOME: root } })).toThrow(/must include either "id"/)
   })
@@ -153,7 +155,7 @@ describe('config loading', () => {
     expect(() => loadSummarizeConfig({ env: { HOME: root } })).toThrow(/bags.*no longer supported/i)
   })
 
-  it('rejects reserved bag name "auto"', () => {
+  it('rejects reserved model name "auto"', () => {
     const { root } = writeJsonConfig({
       models: { auto: { id: 'openai/gpt-5-mini' } },
     })

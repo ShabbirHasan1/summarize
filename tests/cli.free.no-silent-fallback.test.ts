@@ -26,9 +26,9 @@ vi.mock('../src/llm/generate-text.js', () => ({
   }),
 }))
 
-describe('model bags: no silent fallback', () => {
-  it('throws instead of returning extracted text when the bag fails', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'summarize-bag-no-fallback-'))
+describe('model presets: no silent fallback', () => {
+  it('throws instead of returning extracted text when the preset fails', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'summarize-preset-no-fallback-'))
     const filePath = join(root, 'input.txt')
     writeFileSync(filePath, 'hello world', 'utf8')
     mkdirSync(join(root, '.summarize'), { recursive: true })

@@ -26,9 +26,9 @@ vi.mock('../src/llm/generate-text.js', () => ({
   }),
 }))
 
-describe('model bags: OpenRouter provider routing errors', () => {
+describe('model presets: OpenRouter provider routing errors', () => {
   it('fails loudly instead of returning extracted text', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'summarize-bag-openrouter-no-provider-'))
+    const root = mkdtempSync(join(tmpdir(), 'summarize-preset-openrouter-no-provider-'))
     mkdirSync(join(root, '.summarize'), { recursive: true })
     writeFileSync(
       join(root, '.summarize', 'config.json'),
