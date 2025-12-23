@@ -393,14 +393,13 @@ const BUILTIN_MODELS: Record<string, ModelConfig> = {
     rules: [
       {
         candidates: [
+          // Snapshot (2025-12-23): generated via `summarize refresh-free`.
           'openrouter/xiaomi/mimo-v2-flash:free',
+          'openrouter/mistralai/devstral-2512:free',
           'openrouter/qwen/qwen3-coder:free',
           'openrouter/kwaipilot/kat-coder-pro:free',
-          'openrouter/meta-llama/llama-3.3-70b-instruct:free',
-          'openrouter/google/gemma-3-27b-it:free',
-          'openrouter/google/gemma-3n-e2b-it:free',
-          'openrouter/tngtech/deepseek-r1t-chimera:free',
-          'openrouter/nousresearch/hermes-3-llama-3.1-405b:free',
+          'openrouter/moonshotai/kimi-k2:free',
+          'openrouter/nex-agi/deepseek-v3.1-nex-n1:free',
         ],
       },
     ],
