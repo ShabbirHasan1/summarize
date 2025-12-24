@@ -17,13 +17,22 @@ For `model`:
 3. Config file `model`
 4. Built-in default (`auto`)
 
+For `language`:
+
+1. CLI flag `--language` / `--lang`
+2. Config file `language`
+3. Built-in default (`en` / English)
+
+See `docs/language.md` for supported values.
+
 ## Format
 
 `~/.summarize/config.json`:
 
 ```json
 {
-  "model": { "id": "google/gemini-3-flash-preview" }
+  "model": { "id": "google/gemini-3-flash-preview" },
+  "language": "en"
 }
 ```
 
