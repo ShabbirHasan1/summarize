@@ -7,7 +7,7 @@ YouTube URLs use transcript-first extraction.
 - `auto` (default): try `youtubei` → `captionTracks` → Apify (if token exists) → `yt-dlp` (if configured)
 - `web`: try `youtubei` → `captionTracks` only
 - `apify`: Apify only
-- `yt-dlp`: download audio + transcribe (OpenAI Whisper preferred; FAL fallback)
+- `yt-dlp`: download audio + transcribe (local `whisper.cpp` preferred; OpenAI/FAL fallback)
 
 ## `youtubei` vs `captionTracks`
 
@@ -25,7 +25,7 @@ YouTube URLs use transcript-first extraction.
 - If no transcript is available, we still extract `ytInitialPlayerResponse.videoDetails.shortDescription` so YouTube links can still summarize meaningfully.
 - Apify is an optional fallback (needs `APIFY_API_TOKEN`).
   - By default, we use the actor id `faVsWy9VTSNVIhWpR` (Pinto Studio’s “Youtube Transcript Scraper”).
-- `yt-dlp` requires `YT_DLP_PATH` and either `OPENAI_API_KEY` (preferred) or `FAL_KEY`.
+- `yt-dlp` requires `YT_DLP_PATH` and either local `whisper.cpp` (preferred) or `OPENAI_API_KEY` / `FAL_KEY`.
   - If OpenAI transcription fails and `FAL_KEY` is set, we fall back to FAL automatically.
 
 ## Example

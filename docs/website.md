@@ -11,7 +11,7 @@ Use this for non-YouTube URLs.
 - With `--format md`, the CLI prefers Firecrawl Markdown by default when `FIRECRAWL_API_KEY` is configured.
 - With `--format md`, `--markdown-mode auto|llm` can also convert HTML → Markdown via an LLM using the configured `--model` (no provider fallback).
 - With `--format md`, `--markdown-mode auto` may fall back to `uvx markitdown` when available (disable with `--preprocess off`).
-- For podcast URLs (Apple Podcasts, RSS, Spotify episodes), it downloads the episode audio and transcribes via Whisper; progress shows “Downloading audio …” then “Transcribing …” (duration uses RSS hints or `ffprobe` when available).
+- For podcast URLs (Apple Podcasts, RSS, Spotify episodes), it downloads the episode audio and transcribes via Whisper (prefers local `whisper.cpp` when installed + model available); progress shows “Downloading audio …” then “Transcribing …” (duration uses RSS hints or `ffprobe` when available).
 
 ## Flags
 
