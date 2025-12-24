@@ -2,6 +2,7 @@ export type TranscriptSource =
   | 'youtubei'
   | 'captionTracks'
   | 'yt-dlp'
+  | 'podcastTranscript'
   | 'whisper'
   | 'apify'
   | 'html'

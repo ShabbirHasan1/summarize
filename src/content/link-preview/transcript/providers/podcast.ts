@@ -7,6 +7,7 @@ import {
   isWhisperCppReady,
   MAX_OPENAI_UPLOAD_BYTES,
   probeMediaDurationSecondsWithFfprobe,
+  resolveWhisperCppModelNameForDisplay,
   transcribeMediaFileWithWhisper,
   transcribeMediaWithWhisper,
 } from '../../../../transcription/whisper.js'
@@ -75,21 +76,57 @@ export const fetchTranscript = async (
   const attemptedProviders: ProviderResult['attemptedProviders'] = []
   const notes: string[] = []
 
+  const pushOnce = (provider: ProviderResult['attemptedProviders'][number]) => {
+    if (!attemptedProviders.includes(provider)) attemptedProviders.push(provider)
+  }
+
   const hasTranscriptionKeys = Boolean(options.openaiApiKey || options.falApiKey)
   const hasLocalWhisper = await isWhisperCppReady()
-  if (!hasTranscriptionKeys && !hasLocalWhisper) {
-    return {
-      text: null,
-      source: null,
-      attemptedProviders,
-      metadata: { provider: 'podcast', reason: 'missing_transcription_keys' },
-      notes: 'Missing transcription provider (install whisper-cpp or set OPENAI_API_KEY/FAL_KEY)',
+
+  // Prefer Podcasting 2.0 RSS transcripts when present. Many hosts publish full-episode
+  // transcripts (JSON/VTT) via `<podcast:transcript>`, which is faster than re-transcribing audio.
+  if (
+    typeof context.html === 'string' &&
+    looksLikeRssOrAtomFeed(context.html) &&
+    /podcast:transcript/i.test(context.html)
+  ) {
+    pushOnce('podcastTranscript')
+    const direct = await tryFetchTranscriptFromFeedXml({
+      fetchImpl: options.fetch,
+      feedXml: context.html,
+      episodeTitle: null,
+      notes,
+    })
+    if (direct) {
+      return {
+        text: direct.text,
+        source: 'podcastTranscript',
+        attemptedProviders,
+        notes: notes.length > 0 ? notes.join('; ') : null,
+        metadata: {
+          provider: 'podcast',
+          kind: 'rss_podcast_transcript',
+          transcriptUrl: direct.transcriptUrl,
+          transcriptType: direct.transcriptType,
+        },
+      }
     }
+  }
+
+  const missingTranscriptionProviderResult = (): ProviderResult => ({
+    text: null,
+    source: null,
+    attemptedProviders,
+    metadata: { provider: 'podcast', reason: 'missing_transcription_keys' },
+    notes: 'Missing transcription provider (install whisper-cpp or set OPENAI_API_KEY/FAL_KEY)',
+  })
+
+  const ensureTranscriptionProvider = (): ProviderResult | null => {
+    return !hasTranscriptionKeys && !hasLocalWhisper ? missingTranscriptionProviderResult() : null
   }
 
   const spotifyEpisodeId = extractSpotifyEpisodeId(context.url)
   if (spotifyEpisodeId) {
-    attemptedProviders.push('whisper')
     try {
       // Spotify episode pages frequently trigger bot protection (captcha/recaptcha) and the
       // episode audio itself is sometimes DRM-protected. So we:
@@ -114,6 +151,9 @@ export const fetchTranscript = async (
       const embedDurationSeconds = embedData.durationSeconds
 
       if (embedAudioUrl) {
+        const missing = ensureTranscriptionProvider()
+        if (missing) return missing
+        pushOnce('whisper')
         const result = await transcribeMediaUrl({
           fetchImpl: options.fetch,
           url: embedAudioUrl,
@@ -171,6 +211,34 @@ export const fetchTranscript = async (
         throw new Error(`Podcast feed fetch failed (${feedResponse.status})`)
       }
       const feedXml = await feedResponse.text()
+      let maybeTranscript: Awaited<ReturnType<typeof tryFetchTranscriptFromFeedXml>> = null
+      if (/podcast:transcript/i.test(feedXml)) {
+        pushOnce('podcastTranscript')
+        maybeTranscript = await tryFetchTranscriptFromFeedXml({
+          fetchImpl: options.fetch,
+          feedXml,
+          episodeTitle,
+          notes,
+        })
+      }
+      if (maybeTranscript) {
+        return {
+          text: maybeTranscript.text,
+          source: 'podcastTranscript',
+          attemptedProviders,
+          notes: notes.length > 0 ? notes.join('; ') : null,
+          metadata: {
+            provider: 'podcast',
+            kind: 'spotify_itunes_rss_transcript',
+            episodeId: spotifyEpisodeId,
+            showTitle,
+            episodeTitle,
+            feedUrl,
+            transcriptUrl: maybeTranscript.transcriptUrl,
+            transcriptType: maybeTranscript.transcriptType,
+          },
+        }
+      }
       const match = extractEnclosureForEpisode(feedXml, episodeTitle)
       if (!match) {
         throw new Error(`Episode enclosure not found in RSS feed for "${episodeTitle}"`)
@@ -183,6 +251,9 @@ export const fetchTranscript = async (
           ? 'Resolved Spotify episode via Firecrawl embed + iTunes RSS'
           : 'Resolved Spotify episode via iTunes RSS'
       )
+      const missing = ensureTranscriptionProvider()
+      if (missing) return missing
+      pushOnce('whisper')
       const result = await transcribeMediaUrl({
         fetchImpl: options.fetch,
         url: enclosureUrl,
@@ -247,7 +318,6 @@ export const fetchTranscript = async (
   // Only hit the iTunes lookup API when we don't have HTML (Apple Podcasts short-circuit).
   const appleIds = typeof context.html !== 'string' ? extractApplePodcastIds(context.url) : null
   if (appleIds) {
-    attemptedProviders.push('whisper')
     try {
       const episode = await resolveApplePodcastEpisodeFromItunesLookup({
         fetchImpl: options.fetch,
@@ -258,6 +328,48 @@ export const fetchTranscript = async (
         throw new Error('iTunes lookup did not return an episodeUrl')
       }
 
+      if (episode.feedUrl && episode.episodeTitle) {
+        pushOnce('podcastTranscript')
+        const feedResponse = await options.fetch(episode.feedUrl, {
+          redirect: 'follow',
+          signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
+        })
+        if (feedResponse.ok) {
+          const feedXml = await feedResponse.text()
+          let maybeTranscript: Awaited<ReturnType<typeof tryFetchTranscriptFromFeedXml>> = null
+          if (/podcast:transcript/i.test(feedXml)) {
+            maybeTranscript = await tryFetchTranscriptFromFeedXml({
+              fetchImpl: options.fetch,
+              feedXml,
+              episodeTitle: episode.episodeTitle,
+              notes,
+            })
+          }
+          if (maybeTranscript) {
+            notes.push('Resolved Apple Podcasts episode via RSS <podcast:transcript>')
+            return {
+              text: maybeTranscript.text,
+              source: 'podcastTranscript',
+              attemptedProviders,
+              notes: notes.length > 0 ? notes.join('; ') : null,
+              metadata: {
+                provider: 'podcast',
+                kind: 'apple_itunes_rss_transcript',
+                showId: appleIds.showId,
+                episodeId: appleIds.episodeId,
+                feedUrl: episode.feedUrl,
+                episodeTitle: episode.episodeTitle,
+                transcriptUrl: maybeTranscript.transcriptUrl,
+                transcriptType: maybeTranscript.transcriptType,
+              },
+            }
+          }
+        }
+      }
+
+      const missing = ensureTranscriptionProvider()
+      if (missing) return missing
+      pushOnce('whisper')
       const result = await transcribeMediaUrl({
         fetchImpl: options.fetch,
         url: episode.episodeUrl,
@@ -319,7 +431,9 @@ export const fetchTranscript = async (
   const appleStreamUrl =
     typeof context.html === 'string' ? extractEmbeddedJsonUrl(context.html, 'streamUrl') : null
   if (appleStreamUrl) {
-    attemptedProviders.push('whisper')
+    const missing = ensureTranscriptionProvider()
+    if (missing) return missing
+    pushOnce('whisper')
     const result = await transcribeMediaUrl({
       fetchImpl: options.fetch,
       url: appleStreamUrl,
@@ -356,7 +470,6 @@ export const fetchTranscript = async (
   const appleFeedUrl =
     typeof context.html === 'string' ? extractEmbeddedJsonUrl(context.html, 'feedUrl') : null
   if (appleFeedUrl) {
-    attemptedProviders.push('whisper')
     try {
       const feedResponse = await options.fetch(appleFeedUrl, {
         signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
@@ -365,10 +478,38 @@ export const fetchTranscript = async (
         throw new Error(`Feed fetch failed (${feedResponse.status})`)
       }
       const xml = await feedResponse.text()
+      let maybeTranscript: Awaited<ReturnType<typeof tryFetchTranscriptFromFeedXml>> = null
+      if (/podcast:transcript/i.test(xml)) {
+        pushOnce('podcastTranscript')
+        maybeTranscript = await tryFetchTranscriptFromFeedXml({
+          fetchImpl: options.fetch,
+          feedXml: xml,
+          episodeTitle: null,
+          notes,
+        })
+      }
+      if (maybeTranscript) {
+        return {
+          text: maybeTranscript.text,
+          source: 'podcastTranscript',
+          attemptedProviders,
+          notes: notes.length > 0 ? notes.join('; ') : null,
+          metadata: {
+            provider: 'podcast',
+            kind: 'apple_feed_transcript',
+            feedUrl: appleFeedUrl,
+            transcriptUrl: maybeTranscript.transcriptUrl,
+            transcriptType: maybeTranscript.transcriptType,
+          },
+        }
+      }
       const enclosure = extractEnclosureFromFeed(xml)
       if (enclosure) {
         const resolvedUrl = decodeXmlEntities(enclosure.enclosureUrl)
         const durationSeconds = enclosure.durationSeconds
+        const missing = ensureTranscriptionProvider()
+        if (missing) return missing
+        pushOnce('whisper')
         const result = await transcribeMediaUrl({
           fetchImpl: options.fetch,
           url: resolvedUrl,
@@ -423,13 +564,41 @@ export const fetchTranscript = async (
     }
   }
 
-  const feedEnclosureUrl =
-    typeof context.html === 'string' ? extractEnclosureFromFeed(context.html) : null
-  if (feedEnclosureUrl) {
-    attemptedProviders.push('whisper')
+  const feedHtml = typeof context.html === 'string' ? context.html : null
+  const feedEnclosureUrl = feedHtml ? extractEnclosureFromFeed(feedHtml) : null
+  if (feedEnclosureUrl && feedHtml) {
+    if (/podcast:transcript/i.test(feedHtml)) {
+      pushOnce('podcastTranscript')
+    }
     const resolvedUrl = decodeXmlEntities(feedEnclosureUrl.enclosureUrl)
     const durationSeconds = feedEnclosureUrl.durationSeconds
     try {
+      let maybeTranscript: Awaited<ReturnType<typeof tryFetchTranscriptFromFeedXml>> = null
+      if (/podcast:transcript/i.test(feedHtml)) {
+        maybeTranscript = await tryFetchTranscriptFromFeedXml({
+          fetchImpl: options.fetch,
+          feedXml: feedHtml,
+          episodeTitle: null,
+          notes,
+        })
+      }
+      if (maybeTranscript) {
+        return {
+          text: maybeTranscript.text,
+          source: 'podcastTranscript',
+          attemptedProviders,
+          notes: notes.length > 0 ? notes.join('; ') : null,
+          metadata: {
+            provider: 'podcast',
+            kind: 'rss_podcast_transcript',
+            transcriptUrl: maybeTranscript.transcriptUrl,
+            transcriptType: maybeTranscript.transcriptType,
+          },
+        }
+      }
+      const missing = ensureTranscriptionProvider()
+      if (missing) return missing
+      pushOnce('whisper')
       const transcript = await transcribeMediaUrl({
         fetchImpl: options.fetch,
         url: resolvedUrl,
@@ -544,6 +713,9 @@ export const fetchTranscript = async (
       }
     }
   }
+
+  const missing = ensureTranscriptionProvider()
+  if (missing) return missing
 
   return {
     text: null,
@@ -720,6 +892,7 @@ async function resolveApplePodcastEpisodeFromItunesLookup({
   feedUrl: string | null
   fileExtension: string | null
   durationSeconds: number | null
+  episodeTitle: string | null
 } | null> {
   const query = new URLSearchParams({
     id: showId,
@@ -778,7 +951,10 @@ async function resolveApplePodcastEpisodeFromItunesLookup({
       ? chosen.trackTimeMillis / 1000
       : null
 
-  return { episodeUrl: episodeUrlRaw, feedUrl, fileExtension, durationSeconds }
+  const episodeTitle =
+    typeof chosen.trackName === 'string' && chosen.trackName.trim() ? chosen.trackName.trim() : null
+
+  return { episodeUrl: episodeUrlRaw, feedUrl, fileExtension, durationSeconds, episodeTitle }
 }
 
 async function resolvePodcastFeedUrlFromItunesSearch(
@@ -963,6 +1139,167 @@ function decodeXmlEntities(value: string): string {
     .replaceAll(/&apos;/gi, "'")
 }
 
+function extractPodcastTranscriptCandidatesFromItem(
+  itemXml: string
+): Array<{ url: string; type: string | null }> {
+  const matches = itemXml.matchAll(
+    /<podcast:transcript\b[^>]*\burl\s*=\s*(['"])([^'"]+)\1[^>]*>/gi
+  )
+  const results: Array<{ url: string; type: string | null }> = []
+  for (const match of matches) {
+    const tag = match[0]
+    const url = match[2]?.trim()
+    if (!url) continue
+    const type = tag.match(/\btype\s*=\s*(['"])([^'"]+)\1/i)?.[2]?.trim() ?? null
+    results.push({ url, type })
+  }
+  return results
+}
+
+function selectPreferredTranscriptCandidate(
+  candidates: Array<{ url: string; type: string | null }>
+): { url: string; type: string | null } | null {
+  if (candidates.length === 0) return null
+  const normalized = candidates.map((c) => ({
+    ...c,
+    type: c.type?.toLowerCase().split(';')[0]?.trim() ?? null,
+  }))
+
+  const json = normalized.find(
+    (c) => c.type === 'application/json' || c.url.toLowerCase().endsWith('.json')
+  )
+  if (json) return json
+
+  const vtt = normalized.find((c) => c.type === 'text/vtt' || c.url.toLowerCase().endsWith('.vtt'))
+  if (vtt) return vtt
+
+  return normalized[0] ?? null
+}
+
+function vttToPlainText(raw: string): string {
+  const lines = raw
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => line.toUpperCase() !== 'WEBVTT')
+    .filter(
+      (line) =>
+        !/^\d{2}:\d{2}:\d{2}\.\d{3}\s+-->\s+\d{2}:\d{2}:\d{2}\.\d{3}/.test(line)
+    )
+    .filter((line) => !/^\d+$/.test(line))
+    .filter((line) => !/^(NOTE|STYLE|REGION)\b/i.test(line))
+  return lines.join('\n').trim()
+}
+
+function jsonTranscriptToPlainText(payload: unknown): string | null {
+  if (Array.isArray(payload)) {
+    const parts = payload
+      .map((row) => (row && typeof row === 'object' ? (row as Record<string, unknown>).text : null))
+      .filter((t): t is string => typeof t === 'string')
+      .map((t) => t.trim())
+      .filter(Boolean)
+    const text = parts.join('\n').trim()
+    return text.length > 0 ? text : null
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    if (typeof record.transcript === 'string' && record.transcript.trim()) return record.transcript.trim()
+    if (typeof record.text === 'string' && record.text.trim()) return record.text.trim()
+    const segments = record.segments
+    if (Array.isArray(segments)) {
+      const parts = segments
+        .map((row) => (row && typeof row === 'object' ? (row as Record<string, unknown>).text : null))
+        .filter((t): t is string => typeof t === 'string')
+        .map((t) => t.trim())
+        .filter(Boolean)
+      const text = parts.join('\n').trim()
+      return text.length > 0 ? text : null
+    }
+  }
+
+  return null
+}
+
+async function tryFetchTranscriptFromFeedXml({
+  fetchImpl,
+  feedXml,
+  episodeTitle,
+  notes,
+}: {
+  fetchImpl: typeof fetch
+  feedXml: string
+  episodeTitle: string | null
+  notes: string[]
+}): Promise<{ text: string; transcriptUrl: string; transcriptType: string | null } | null> {
+  const items = feedXml.match(/<item\b[\s\S]*?<\/item>/gi) ?? []
+  const normalizedTarget = episodeTitle ? normalizeLooseTitle(episodeTitle) : null
+
+  for (const item of items) {
+    if (normalizedTarget) {
+      const title = extractItemTitle(item)
+      if (!title || normalizeLooseTitle(title) !== normalizedTarget) continue
+    }
+
+    const candidates = extractPodcastTranscriptCandidatesFromItem(item)
+    const preferred = selectPreferredTranscriptCandidate(candidates)
+    if (!preferred) {
+      if (normalizedTarget) return null
+      continue
+    }
+
+    const transcriptUrl = decodeXmlEntities(preferred.url)
+    try {
+      const res = await fetchImpl(transcriptUrl, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
+        headers: { accept: 'text/vtt,text/plain,application/json;q=0.9,*/*;q=0.8' },
+      })
+      if (!res.ok) throw new Error(`transcript fetch failed (${res.status})`)
+
+      const contentType = res.headers.get('content-type')?.toLowerCase().split(';')[0]?.trim() ?? null
+      const hintedType = preferred.type?.toLowerCase().split(';')[0]?.trim() ?? null
+      const effectiveType = hintedType ?? contentType
+
+      const body = await res.text()
+      const text = (() => {
+        if (effectiveType === 'application/json' || transcriptUrl.toLowerCase().endsWith('.json')) {
+          try {
+            return jsonTranscriptToPlainText(JSON.parse(body))
+          } catch {
+            return null
+          }
+        }
+        if (effectiveType === 'text/vtt' || transcriptUrl.toLowerCase().endsWith('.vtt')) {
+          const plain = vttToPlainText(body)
+          return plain.length > 0 ? plain : null
+        }
+        const plain = body.trim()
+        return plain.length > 0 ? plain : null
+      })()
+
+      if (!text) {
+        if (normalizedTarget) return null
+        continue
+      }
+
+      notes.push('Used RSS <podcast:transcript> (skipped Whisper)')
+      return { text, transcriptUrl, transcriptType: effectiveType }
+    } catch (error) {
+      if (normalizedTarget) {
+        notes.push(
+          `RSS <podcast:transcript> fetch failed: ${error instanceof Error ? error.message : String(error)}`
+        )
+        return null
+      }
+      continue
+    }
+  }
+
+  return null
+}
+
 async function transcribeMediaUrl({
   fetchImpl,
   url,
@@ -1019,7 +1356,7 @@ async function transcribeMediaUrl({
 
   const modelId =
     providerHint === 'cpp'
-      ? 'whisper.cpp'
+      ? (await resolveWhisperCppModelNameForDisplay()) ?? 'whisper.cpp'
       : openaiApiKey && falApiKey
         ? 'whisper-1->fal-ai/wizper'
         : openaiApiKey
@@ -1062,7 +1399,18 @@ async function transcribeMediaUrl({
       filename,
       openaiApiKey,
       falApiKey,
-      onProgress: null,
+      totalDurationSeconds: durationSecondsHint,
+      onProgress: (event) => {
+        progress?.onProgress?.({
+          kind: 'transcript-whisper-progress',
+          url: progress.url,
+          service: progress.service,
+          processedDurationSeconds: event.processedDurationSeconds,
+          totalDurationSeconds: event.totalDurationSeconds,
+          partIndex: event.partIndex,
+          parts: event.parts,
+        })
+      },
     })
     if (transcript.notes.length > 0) notes.push(...transcript.notes)
     return { text: transcript.text, provider: transcript.provider, error: transcript.error }
@@ -1102,7 +1450,18 @@ async function transcribeMediaUrl({
       filename,
       openaiApiKey,
       falApiKey,
-      onProgress: null,
+      totalDurationSeconds: durationSecondsHint,
+      onProgress: (event) => {
+        progress?.onProgress?.({
+          kind: 'transcript-whisper-progress',
+          url: progress.url,
+          service: progress.service,
+          processedDurationSeconds: event.processedDurationSeconds,
+          totalDurationSeconds: event.totalDurationSeconds,
+          partIndex: event.partIndex,
+          parts: event.parts,
+        })
+      },
     })
     if (transcript.notes.length > 0) notes.push(...transcript.notes)
     return { text: transcript.text, provider: transcript.provider, error: transcript.error }

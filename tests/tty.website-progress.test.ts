@@ -202,7 +202,7 @@ describe('tty website progress', () => {
       url: 'https://podcasts.example/episode',
       service: 'podcast',
       providerHint: 'openai->fal',
-      modelId: 'whisper-1->fal-ai/wizper',
+      modelId: 'whisper-1->fal-ai/wizper'
       totalDurationSeconds: 44,
       parts: null,
     })

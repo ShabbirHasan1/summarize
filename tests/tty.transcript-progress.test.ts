@@ -59,7 +59,7 @@ describe('tty transcript progress renderer', () => {
       url: 'https://example.com',
       service: 'podcast',
       providerHint: 'openai->fal',
-      modelId: 'whisper-1->fal-ai/wizper',
+      modelId: 'whisper-1->fal-ai/wizper'
       totalDurationSeconds: 44,
       parts: 3,
     })

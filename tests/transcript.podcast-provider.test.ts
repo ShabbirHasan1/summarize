@@ -13,9 +13,11 @@ const baseOptions = {
 }
 
 describe('podcast transcript provider module', () => {
-  it('returns a helpful message when transcription keys are missing', async () => {
+  it('returns a helpful message only when transcription is required but unavailable', async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><item><enclosure url="https://example.com/episode.mp3" type="audio/mpeg"/></item></channel></rss>`
+
     const result = await fetchTranscript(
-      { url: 'https://example.com/feed.xml', html: '<rss></rss>', resourceKey: null },
+      { url: 'https://example.com/feed.xml', html: xml, resourceKey: null },
       { ...baseOptions, openaiApiKey: null, falApiKey: null }
     )
 
@@ -24,6 +26,84 @@ describe('podcast transcript provider module', () => {
     expect(result.attemptedProviders).toEqual([])
     expect(result.metadata?.reason).toBe('missing_transcription_keys')
     expect(result.notes).toContain('Missing transcription provider')
+  })
+
+  it('extracts Podcasting 2.0 transcript from RSS (JSON) without needing Whisper', async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><item><title>Episode 1</title><podcast:transcript url="https://example.com/transcript.json" type="application/json"/></item></channel></rss>`
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url == 'https://example.com/transcript.json') {
+        return new Response(JSON.stringify([{ text: 'Hello' }, { text: 'world' }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const result = await fetchTranscript(
+      { url: 'https://example.com/feed.xml', html: xml, resourceKey: null },
+      { ...baseOptions, fetch: fetchImpl as unknown as typeof fetch, openaiApiKey: null, falApiKey: null }
+    )
+
+    expect(result.source).toBe('podcastTranscript')
+    expect(result.text).toBe('Hello\nworld')
+    expect(result.attemptedProviders).toEqual(['podcastTranscript'])
+  })
+
+  it('resolves Apple Podcasts iTunes lookup → RSS transcript (VTT) and avoids preview audio', async () => {
+    const appleUrl = 'https://podcasts.apple.com/us/podcast/x/id123?i=456'
+    const feedUrl = 'https://example.com/feed.xml'
+    const transcriptUrl = 'https://example.com/transcript.vtt'
+
+    const itunesPayload = {
+      resultCount: 2,
+      results: [
+        { wrapperType: 'track', kind: 'podcast', feedUrl },
+        {
+          wrapperType: 'podcastEpisode',
+          trackId: 456,
+          trackName: 'Episode 1',
+          episodeUrl: 'https://example.com/preview.mp3',
+          episodeFileExtension: 'mp3',
+          trackTimeMillis: 60_000,
+        },
+      ],
+    }
+
+    const feedXml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><item><title><![CDATA[Episode 1]]></title><podcast:transcript url="${transcriptUrl}" type="text/vtt"/></item></channel></rss>`
+    const vtt = `WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+Hello from VTT
+`
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.startsWith('https://itunes.apple.com/lookup')) {
+        return new Response(JSON.stringify(itunesPayload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url == feedUrl) {
+        return new Response(feedXml, { status: 200, headers: { 'content-type': 'application/xml' } })
+      }
+      if (url == transcriptUrl) {
+        return new Response(vtt, { status: 200, headers: { 'content-type': 'text/vtt' } })
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const result = await fetchTranscript(
+      { url: appleUrl, html: null, resourceKey: null },
+      { ...baseOptions, fetch: fetchImpl as unknown as typeof fetch, openaiApiKey: null, falApiKey: null }
+    )
+
+    expect(result.source).toBe('podcastTranscript')
+    expect(result.text).toBe('Hello from VTT')
+    expect(result.attemptedProviders).toEqual(['podcastTranscript'])
   })
 
   it('extracts RSS enclosure URL and decodes &amp;', async () => {
@@ -389,7 +469,7 @@ describe('podcast transcript provider module', () => {
 
     expect(result.text).toBeNull()
     expect(result.source).toBeNull()
-    expect(result.attemptedProviders).toEqual(['whisper'])
+    expect(result.attemptedProviders).toEqual([])
     expect(result.notes).toContain('Spotify episode fetch failed')
     expect(result.metadata?.kind).toBe('spotify_itunes_rss_enclosure')
   })

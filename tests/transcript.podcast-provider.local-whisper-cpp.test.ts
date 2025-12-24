@@ -8,6 +8,7 @@ describe('podcast transcript provider: local whisper.cpp', () => {
       MAX_OPENAI_UPLOAD_BYTES: 24 * 1024 * 1024,
       isFfmpegAvailable: async () => false,
       isWhisperCppReady: async () => true,
+      resolveWhisperCppModelNameForDisplay: async () => 'base',
       probeMediaDurationSecondsWithFfprobe: async () => null,
       transcribeMediaWithWhisper: async () => ({
         text: 'local transcript ok',

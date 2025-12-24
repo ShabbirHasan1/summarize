@@ -6,7 +6,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? null
 const LIVE =
   process.env.SUMMARIZE_LIVE_TESTS === '1' && process.env.SUMMARIZE_LIVE_HEAVY_PODCASTS === '1'
 
-describe('live Apple Podcasts episode transcript (streamUrl + whisper)', () => {
+describe('live Apple Podcasts episode transcript (RSS transcript preferred)', () => {
   const run = LIVE ? it : it.skip
 
   run(
@@ -23,7 +23,7 @@ describe('live Apple Podcasts episode transcript (streamUrl + whisper)', () => {
         cacheMode: 'bypass',
       })
 
-      expect(result.transcriptSource).toBe('whisper')
+      expect(result.transcriptSource).toBe('podcastTranscript')
       expect(result.transcriptCharacters ?? 0).toBeGreaterThan(20)
       expect(result.content.toLowerCase()).toContain('transcript:')
     },

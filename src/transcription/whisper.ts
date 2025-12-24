@@ -85,6 +85,21 @@ async function resolveWhisperCppModelPath(): Promise<string | null> {
   return null
 }
 
+function resolveWhisperCppModelLabelFromPath(modelPath: string): string {
+  const base = modelPath.split('/').pop() ?? modelPath
+  let name = base
+    .replace(/^ggml-/, '')
+    .replace(/\.bin$/i, '')
+    .replace(/\.en$/i, '')
+  name = name.trim()
+  return name.length > 0 ? name : base
+}
+
+export async function resolveWhisperCppModelNameForDisplay(): Promise<string | null> {
+  const modelPath = await resolveWhisperCppModelPath()
+  return modelPath ? resolveWhisperCppModelLabelFromPath(modelPath) : null
+}
+
 function isWhisperCppSupportedMediaType(mediaType: string): boolean {
   const type = mediaType.toLowerCase().split(';')[0]?.trim() ?? ''
   return (
@@ -170,6 +185,7 @@ async function transcribeWithWhisperCppFile({
       'auto',
       '--no-timestamps',
       '--no-prints',
+      '--print-progress',
       '--output-txt',
       '--output-file',
       outputBase,
@@ -181,9 +197,34 @@ async function transcribeWithWhisperCppFile({
         const proc = spawn(resolveWhisperCppBinary(), args, { stdio: ['ignore', 'ignore', 'pipe'] })
         let stderr = ''
         proc.stderr?.setEncoding('utf8')
+        let lastProgressPercent = -1
         proc.stderr?.on('data', (chunk: string) => {
-          if (stderr.length > 8192) return
-          stderr += chunk
+          if (stderr.length <= 8192) {
+            stderr += chunk
+          }
+
+          // Progress output from `whisper-cli --print-progress` arrives on stderr. We parse it
+          // best-effort and map to seconds when we know the total duration.
+          const lines = chunk.split(/\r?\n/)
+          for (const line of lines) {
+            const match = line.match(/progress\s*=\s*(\d{1,3})%/i)
+            if (!match) continue
+            const raw = Number(match[1])
+            if (!Number.isFinite(raw)) continue
+            const pct = Math.max(0, Math.min(100, Math.round(raw)))
+            if (pct == lastProgressPercent) continue
+            lastProgressPercent = pct
+            const processed =
+              typeof totalDurationSeconds === 'number' && totalDurationSeconds > 0
+                ? (totalDurationSeconds * pct) / 100
+                : null
+            onProgress?.({
+              partIndex: null,
+              parts: null,
+              processedDurationSeconds: processed,
+              totalDurationSeconds,
+            })
+          }
         })
         proc.on('error', reject)
         proc.on('close', (code) => {
@@ -214,7 +255,7 @@ async function transcribeWithWhisperCppFile({
         notes,
       }
     }
-    notes.push(`whisper.cpp: model=${modelPath.split('/').pop() ?? modelPath}`)
+    notes.push(`whisper.cpp: model=${resolveWhisperCppModelLabelFromPath(modelPath)}`)
     return { text, provider: 'whisper.cpp', error: null, notes }
   } finally {
     await effectivePath.cleanup?.().catch(() => {})
@@ -227,6 +268,7 @@ export async function transcribeMediaWithWhisper({
   filename,
   openaiApiKey,
   falApiKey,
+  totalDurationSeconds = null,
   onProgress,
 }: {
   bytes: Uint8Array
@@ -234,6 +276,7 @@ export async function transcribeMediaWithWhisper({
   filename: string | null
   openaiApiKey: string | null
   falApiKey: string | null
+  totalDurationSeconds?: number | null
   onProgress?: ((event: WhisperProgressEvent) => void) | null
 }): Promise<WhisperTranscriptionResult> {
   const notes: string[] = []
@@ -251,7 +294,7 @@ export async function transcribeMediaWithWhisper({
       const local = await transcribeWithWhisperCppFile({
         filePath: tempFile,
         mediaType,
-        totalDurationSeconds: null,
+        totalDurationSeconds,
         onProgress,
       })
       if (local.text) {
