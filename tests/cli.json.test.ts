@@ -41,7 +41,7 @@ describe('cli --json', () => {
         },
       })
 
-      await runCli(['--json', '--extract', '--timeout', '2s', 'https://example.com'], {
+      await runCli(['--json', '--extract', '--format', 'text', '--timeout', '2s', 'https://example.com'], {
         env: { HOME: home },
         fetch: fetchMock as unknown as typeof fetch,
         stdout,
@@ -88,14 +88,14 @@ describe('cli --json', () => {
       },
     })
 
-    await runCli(['--json', '--extract', '--timeout', '2s', 'https://example.com'], {
+    await runCli(['--json', '--extract', '--format', 'text', '--timeout', '2s', 'https://example.com'], {
       env: { HOME: home },
       fetch: fetchMock as unknown as typeof fetch,
       stdout,
       stderr,
     })
 
-    expect(stderrText).toContain('· auto')
+    expect(stderrText).toContain('· text')
     const parsed = JSON.parse(stdoutText) as {
       env: {
         hasXaiKey: boolean

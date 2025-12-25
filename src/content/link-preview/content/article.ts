@@ -165,15 +165,7 @@ export function extractPlainText(html: string): string {
 }
 
 function mergeConsecutiveSegments(segments: string[]): string[] {
-  const merged: string[] = []
-  for (const segment of segments) {
-    if (!segment) continue
-    const last = merged.at(-1)
-    if (last && !segment.startsWith('•') && segment.length < MIN_SEGMENT_LENGTH / 2) {
-      merged[merged.length - 1] = `${last} ${segment}`
-      continue
-    }
-    merged.push(segment)
-  }
-  return merged
+  // Keep headings as separate segments; merging short segments mostly collapses headings into the
+  // previous paragraph ("... Conclusion"), which reads worse than a standalone heading line.
+  return segments.filter(Boolean)
 }

@@ -76,17 +76,15 @@ export const resolveTranscriptForLink = async (
     }
   }
 
-  deps.onProgress?.({
-    kind: 'transcript-start',
-    url: normalizedUrl,
-    service: provider.id,
-    hint:
-      provider.id === 'youtube'
-        ? 'YouTube: resolving transcript'
-        : provider.id === 'podcast'
-          ? 'Podcast: resolving transcript'
-          : 'Transcript: resolving',
-  })
+  const shouldReportProgress = provider.id === 'youtube' || provider.id === 'podcast'
+  if (shouldReportProgress) {
+    deps.onProgress?.({
+      kind: 'transcript-start',
+      url: normalizedUrl,
+      service: provider.id,
+      hint: provider.id === 'youtube' ? 'YouTube: resolving transcript' : 'Podcast: resolving transcript',
+    })
+  }
 
   const providerResult = await executeProvider(provider, baseContext, {
     fetch: deps.fetch,
@@ -99,14 +97,16 @@ export const resolveTranscriptForLink = async (
     youtubeTranscriptMode: youtubeTranscriptMode ?? 'auto',
   })
 
-  deps.onProgress?.({
-    kind: 'transcript-done',
-    url: normalizedUrl,
-    ok: Boolean(providerResult.text && providerResult.text.length > 0),
-    service: provider.id,
-    source: providerResult.source,
-    hint: providerResult.source ? `${provider.id}/${providerResult.source}` : provider.id,
-  })
+  if (shouldReportProgress) {
+    deps.onProgress?.({
+      kind: 'transcript-done',
+      url: normalizedUrl,
+      ok: Boolean(providerResult.text && providerResult.text.length > 0),
+      service: provider.id,
+      source: providerResult.source,
+      hint: providerResult.source ? `${provider.id}/${providerResult.source}` : provider.id,
+    })
+  }
 
   diagnostics.provider = providerResult.source
   diagnostics.attemptedProviders = providerResult.attemptedProviders

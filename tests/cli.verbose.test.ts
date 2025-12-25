@@ -38,6 +38,8 @@ describe('--verbose', () => {
         '--json',
         '--verbose',
         '--extract',
+        '--format',
+        'text',
         '--firecrawl',
         'off',
         '--timeout',
@@ -91,7 +93,7 @@ describe('--verbose', () => {
     })
 
     await runCli(
-      ['--json', '--verbose', '--extract', '--firecrawl', 'off', 'https://example.com'],
+      ['--json', '--verbose', '--extract', '--format', 'text', '--firecrawl', 'off', 'https://example.com'],
       {
         env: { TERM: 'xterm-256color' },
         fetch: fetchMock as unknown as typeof fetch,
@@ -139,6 +141,8 @@ describe('--debug', () => {
         '--json',
         '--debug',
         '--extract',
+        '--format',
+        'text',
         '--firecrawl',
         'off',
         '--timeout',

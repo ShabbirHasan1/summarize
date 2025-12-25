@@ -35,7 +35,9 @@ describe('cli --extract', () => {
       },
     })
 
-    await runCli(['--extract', '--format', 'md', '--timeout', '2s', 'https://example.com'], {
+    await runCli(
+      ['--extract', '--format', 'md', '--firecrawl', 'always', '--timeout', '2s', 'https://example.com'],
+      {
       env: { OPENAI_API_KEY: 'test', FIRECRAWL_API_KEY: 'test' },
       fetch: fetchMock as unknown as typeof fetch,
       stdout,
@@ -44,7 +46,8 @@ describe('cli --extract', () => {
           cb()
         },
       }),
-    })
+      }
+    )
 
     expect(stdoutText).toContain(body.slice(0, 200))
     expect(stdoutText.length).toBeGreaterThanOrEqual(59_000)
@@ -72,7 +75,7 @@ describe('cli --extract', () => {
       },
     })
 
-    await runCli(['--extract-only', '--timeout', '2s', 'https://example.com'], {
+    await runCli(['--extract-only', '--format', 'text', '--timeout', '2s', 'https://example.com'], {
       env: {},
       fetch: fetchMock as unknown as typeof fetch,
       stdout,

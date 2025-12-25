@@ -440,13 +440,13 @@ function buildProgram() {
     )
     .option(
       '--firecrawl <mode>',
-      'Firecrawl usage: off, auto (fallback), always (try Firecrawl first). Note: in --format md website mode, defaults to always when FIRECRAWL_API_KEY is set (unless --firecrawl is set explicitly).',
+      'Firecrawl usage: off, auto (fallback), always (try Firecrawl first).',
       'auto'
     )
     .option(
       '--format <format>',
-      'Website/file content format: md|text. For websites: controls the extraction format. For files: controls whether we try to preprocess to Markdown for model compatibility. (default: text)',
-      'text'
+      'Website/file content format: md|text. For websites: controls the extraction format. For files: controls whether we try to preprocess to Markdown for model compatibility. (default: text; default in --extract mode for URLs: md)',
+      undefined
     )
     .addOption(
       new Option(
@@ -459,8 +459,8 @@ function buildProgram() {
     .addOption(
       new Option(
         '--markdown-mode <mode>',
-        'HTML→Markdown conversion: off, auto (prefer Firecrawl when configured, then LLM when configured, then markitdown when available), llm (force LLM), readability (use Readability article HTML as input). Only affects --format md for non-YouTube URLs.'
-      ).default('auto')
+        'HTML→Markdown conversion: off, auto (prefer LLM when configured, then markitdown when available), llm (force LLM), readability (use Readability article HTML as input). Only affects --format md for non-YouTube URLs.'
+      ).default('readability')
     )
     .addOption(
       new Option(
@@ -1606,11 +1606,21 @@ export async function runCli(
   const metricsEnabled = metricsMode !== 'off'
   const metricsDetailed = metricsMode === 'detailed'
   const preprocessMode = parsePreprocessMode(program.opts().preprocess as string)
-  const format = parseExtractFormat(program.opts().format as string)
-
   const shouldComputeReport = metricsEnabled
 
   const isYoutubeUrl = typeof url === 'string' ? /youtube\.com|youtu\.be/i.test(url) : false
+  const formatExplicitlySet = normalizedArgv.some(
+    (arg) => arg === '--format' || arg.startsWith('--format=')
+  )
+  const rawFormatOpt =
+    typeof program.opts().format === 'string' ? (program.opts().format as string) : null
+  const format = parseExtractFormat(
+    formatExplicitlySet
+      ? (rawFormatOpt ?? 'text')
+      : extractMode && inputTarget.kind === 'url' && !isYoutubeUrl
+        ? 'md'
+        : 'text'
+  )
   const firecrawlExplicitlySet = normalizedArgv.some(
     (arg) => arg === '--firecrawl' || arg.startsWith('--firecrawl=')
   )
@@ -1626,7 +1636,7 @@ export async function runCli(
       ? parseMarkdownMode(
           (program.opts().markdownMode as string | undefined) ??
             (program.opts().markdown as string | undefined) ??
-            'auto'
+            'readability'
         )
       : 'off'
   const requestedFirecrawlMode = parseFirecrawlMode(program.opts().firecrawl as string)
@@ -2431,10 +2441,68 @@ export async function runCli(
 
   const writeViaFooter = (parts: string[]) => {
     if (json) return
+    if (extractMode) return
     const filtered = parts.map((p) => p.trim()).filter(Boolean)
     if (filtered.length === 0) return
     clearProgressForStdout()
     stderr.write(`${ansi('2', `via ${filtered.join(', ')}`, verboseColor)}\n`)
+  }
+
+  type ExtractDiagnosticsForFinishLine = {
+    strategy: 'bird' | 'firecrawl' | 'html' | 'nitter'
+    firecrawl: { used: boolean }
+    markdown: { used: boolean; provider: 'firecrawl' | 'llm' | null; notes?: string | null }
+    transcript: { textProvided: boolean; provider: string | null }
+  }
+
+  const buildExtractFinishLabel = (args: {
+    extracted: { diagnostics: ExtractDiagnosticsForFinishLine }
+    format: 'text' | 'markdown'
+    markdownMode: 'off' | 'auto' | 'llm' | 'readability'
+    hasMarkdownLlmCall: boolean
+  }): string => {
+    const base = args.format === 'markdown' ? 'markdown' : 'text'
+
+    const transcriptProvided = Boolean(args.extracted.diagnostics.transcript?.textProvided)
+    if (transcriptProvided) {
+      const provider = args.extracted.diagnostics.transcript?.provider
+      return provider ? `${base} via transcript/${provider}` : `${base} via transcript`
+    }
+
+    if (args.format === 'markdown') {
+      const strategy = String(args.extracted.diagnostics.strategy ?? '')
+      const firecrawlUsed = strategy === 'firecrawl' || Boolean(args.extracted.diagnostics.firecrawl?.used)
+      if (firecrawlUsed) return `${base} via firecrawl`
+      if (strategy === 'html' && args.markdownMode === 'readability') return `${base} via readability`
+
+      const mdUsed = Boolean(args.extracted.diagnostics.markdown?.used)
+      const mdProvider = args.extracted.diagnostics.markdown.provider
+      const mdNotes = args.extracted.diagnostics.markdown.notes ?? null
+
+      if (mdUsed && mdProvider === 'firecrawl') {
+        return `${base} via firecrawl`
+      }
+
+      if (mdUsed && mdNotes && mdNotes.toLowerCase().includes('readability html used')) {
+        return `${base} via readability`
+      }
+
+      if (mdUsed) {
+        if (args.markdownMode === 'readability') return `${base} via readability`
+        if (args.hasMarkdownLlmCall) return `${base} via llm`
+        return `${base} via markitdown`
+      }
+    }
+
+    const strategy = String(args.extracted.diagnostics.strategy ?? '')
+    if (strategy === 'firecrawl' || args.extracted.diagnostics.firecrawl?.used) {
+      return `${base} via firecrawl`
+    }
+    if (strategy === 'bird') return `${base} via bird`
+    if (strategy === 'nitter') return `${base} via nitter`
+
+    // Default: avoid noisy "via html"
+    return base
   }
 
   const summarizeAsset = async ({
@@ -3055,12 +3123,7 @@ export async function runCli(
     throw new Error('--format md conflicts with --markdown-mode off (use --format text)')
   }
 
-  const firecrawlMode = (() => {
-    if (wantsMarkdown && !isYoutubeUrl && !firecrawlExplicitlySet && firecrawlConfigured) {
-      return 'always'
-    }
-    return requestedFirecrawlMode
-  })()
+  const firecrawlMode = requestedFirecrawlMode
   if (firecrawlMode === 'always' && !firecrawlConfigured) {
     throw new Error('--firecrawl always requires FIRECRAWL_API_KEY')
   }
@@ -3293,6 +3356,15 @@ export async function runCli(
             throw new Error('No HTML→Markdown converter configured')
           }
           return llmHtmlToMarkdown(args)
+        }
+
+        if (extractMode) {
+          if (markitdownHtmlToMarkdown) {
+            return await markitdownHtmlToMarkdown(args)
+          }
+          throw new Error(
+            'No HTML→Markdown converter configured (install uvx/markitdown or use --markdown-mode llm)'
+          )
         }
 
         if (llmHtmlToMarkdown) {
@@ -3566,6 +3638,12 @@ export async function runCli(
 
     if (extractMode) {
       clearProgressForStdout()
+      const finishLabel = buildExtractFinishLabel({
+        extracted: { diagnostics: extracted.diagnostics },
+        format,
+        markdownMode: effectiveMarkdownMode,
+        hasMarkdownLlmCall: llmCalls.some((call) => call.purpose === 'markdown'),
+      })
       if (json) {
         const finishReport = shouldComputeReport ? await buildReport() : null
         const payload: JsonOutput = {
@@ -3606,7 +3684,7 @@ export async function runCli(
           writeFinishLine({
             stderr,
             elapsedMs: Date.now() - runStartedAtMs,
-            model: requestedModelLabel,
+            model: finishLabel,
             report: finishReport,
             costUsd,
             detailed: metricsDetailed,
@@ -3631,7 +3709,7 @@ export async function runCli(
         writeFinishLine({
           stderr,
           elapsedMs: Date.now() - runStartedAtMs,
-          model: requestedModelLabel,
+          model: finishLabel,
           report,
           costUsd,
           detailed: metricsDetailed,

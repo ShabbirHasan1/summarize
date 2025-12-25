@@ -37,7 +37,7 @@ describe('article content extraction', () => {
     expect(extractArticleContent(html)).toContain('Just some text')
   })
 
-  it('merges consecutive very short segments into the previous segment', () => {
+  it('keeps headings as standalone segments', () => {
     const html = `
       <html><body>
         <p>This paragraph is long enough to be included in segments.</p>
@@ -46,9 +46,9 @@ describe('article content extraction', () => {
     `
 
     const segments = collectSegmentsFromHtml(html)
-    expect(segments.length).toBe(1)
+    expect(segments.length).toBe(2)
     expect(segments[0]).toContain('This paragraph is long enough')
-    expect(segments[0]).toContain('Tiny heading')
+    expect(segments[1]).toContain('Tiny heading')
   })
 
   it('sanitizes HTML for Markdown conversion and keeps href', () => {

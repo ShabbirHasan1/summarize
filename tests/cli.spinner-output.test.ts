@@ -158,7 +158,7 @@ describe('cli spinner output', () => {
     const stdout = collectStream({ isTTY: true })
     const stderr = collectStream({ isTTY: true })
 
-    await runCli(['--extract', '--timeout', '2s', 'https://example.com'], {
+    await runCli(['--extract', '--format', 'text', '--timeout', '2s', 'https://example.com'], {
       env: { HOME: root, TERM: 'xterm-256color' },
       fetch: vi.fn(async () => {
         return new Response('<html><body><h1>Example</h1></body></html>', {
@@ -172,6 +172,7 @@ describe('cli spinner output', () => {
 
     const rawErr = stderr.getText()
     expect(rawErr).toContain('Fetching website')
+    expect(rawErr).not.toContain('Transcript')
     expect(rawErr).toContain('\r\u001b[2K')
 
     const visibleErr = applyCarriageReturnAndClearLine(stripCsi(stripOsc(rawErr)))

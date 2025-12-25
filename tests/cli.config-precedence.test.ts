@@ -108,7 +108,7 @@ describe('cli config precedence', () => {
 
     const stdout = captureStream()
 
-    await runCli(['--timeout', '2s', '--extract', '--json', 'https://example.com'], {
+    await runCli(['--timeout', '2s', '--extract', '--format', 'text', '--json', 'https://example.com'], {
       env: { HOME: tempRoot },
       fetch: fetchMock as unknown as typeof fetch,
       stdout: stdout.stream,
@@ -147,7 +147,7 @@ describe('cli config precedence', () => {
 
     const stdout = captureStream()
 
-    await runCli(['--timeout', '2s', '--extract', '--json', 'https://example.com'], {
+    await runCli(['--timeout', '2s', '--extract', '--format', 'text', '--json', 'https://example.com'], {
       env: { HOME: tempRoot, SUMMARIZE_MODEL: 'openai/gpt-5.2' },
       fetch: fetchMock as unknown as typeof fetch,
       stdout: stdout.stream,

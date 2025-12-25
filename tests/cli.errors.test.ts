@@ -96,7 +96,7 @@ describe('cli error handling', () => {
 
   it('errors when --markdown-mode is used without --format md', async () => {
     await expect(
-      runCli(['--markdown-mode', 'auto', '--extract', 'https://example.com'], {
+      runCli(['--markdown-mode', 'auto', 'https://example.com'], {
         env: { HOME: home },
         fetch: vi.fn(
           async () => new Response('<html></html>', { status: 200 })

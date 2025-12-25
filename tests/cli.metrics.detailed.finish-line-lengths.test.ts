@@ -118,7 +118,7 @@ describe('--metrics detailed', () => {
       },
     })
 
-    await runCli(['--extract', '--metrics', 'detailed', '--timeout', '2s', url], {
+    await runCli(['--extract', '--format', 'text', '--metrics', 'detailed', '--timeout', '2s', url], {
       env: { OPENAI_API_KEY: 'test' },
       fetch: fetchMock as unknown as typeof fetch,
       stdout: new Writable({

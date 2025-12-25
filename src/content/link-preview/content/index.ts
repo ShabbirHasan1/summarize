@@ -700,17 +700,30 @@ async function buildResultFromHtmlDocument({
   const mergedTitle = pickFirstText([jsonLd?.title, title])
   const mergedDescription = pickFirstText([jsonLd?.description, description])
   const isPodcastJsonLd = isPodcastLikeJsonLdType(jsonLd?.type)
-  const rawContent = extractArticleContent(html)
-  const normalized = normalizeForPrompt(rawContent)
-
   const readability = readabilityCandidate ?? (await extractReadabilityFromHtml(html, url))
   const readabilityText = readability?.text ? normalizeForPrompt(readability.text) : ''
   const readabilityHtml = toReadabilityHtml(readability)
-  const preferReadability =
+
+  const normalizedSegmentsFromHtml = normalizeForPrompt(extractArticleContent(html))
+  const normalizedSegmentsFromReadabilityHtml = readabilityHtml
+    ? normalizeForPrompt(extractArticleContent(readabilityHtml))
+    : ''
+  const preferReadabilityHtml =
+    normalizedSegmentsFromReadabilityHtml.length >= MIN_READABILITY_CONTENT_CHARACTERS &&
+    (normalizedSegmentsFromHtml.length < MIN_HTML_CONTENT_CHARACTERS ||
+      normalizedSegmentsFromReadabilityHtml.length >=
+        normalizedSegmentsFromHtml.length * READABILITY_RELATIVE_THRESHOLD)
+  const normalizedSegments = preferReadabilityHtml
+    ? normalizedSegmentsFromReadabilityHtml
+    : normalizedSegmentsFromHtml
+
+  const preferReadabilityText =
+    !preferReadabilityHtml &&
     readabilityText.length >= MIN_READABILITY_CONTENT_CHARACTERS &&
-    (normalized.length < MIN_HTML_CONTENT_CHARACTERS ||
-      readabilityText.length >= normalized.length * READABILITY_RELATIVE_THRESHOLD)
-  const effectiveNormalized = preferReadability ? readabilityText : normalized
+    (normalizedSegmentsFromHtml.length < MIN_HTML_CONTENT_CHARACTERS ||
+      readabilityText.length >= normalizedSegmentsFromHtml.length * READABILITY_RELATIVE_THRESHOLD)
+  const preferReadability = preferReadabilityHtml || preferReadabilityText
+  const effectiveNormalized = preferReadabilityText ? readabilityText : normalizedSegments
   const descriptionCandidate = mergedDescription ? normalizeForPrompt(mergedDescription) : ''
   const preferDescription =
     descriptionCandidate.length >= MIN_METADATA_DESCRIPTION_CHARACTERS &&
@@ -735,7 +748,7 @@ async function buildResultFromHtmlDocument({
     : effectiveNormalizedWithDescription
 
   let baseContent = selectBaseContent(baseCandidate, transcriptResolution.text)
-  if (baseContent === normalized) {
+  if (baseContent === normalizedSegments) {
     baseContent = stripLeadingTitle(baseContent, mergedTitle ?? title)
   }
 
