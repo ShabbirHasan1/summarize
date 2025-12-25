@@ -13,6 +13,7 @@
 - Finish line always includes the model id when an LLM is used (including `--extract --markdown-mode llm`).
 - `--extract` renders Markdown in TTY output (same renderer as summaries) when `--render auto|md` (use `--render plain` for raw Markdown).
 - Suppress transcript progress/failure messages for non-YouTube / non-podcast URLs.
+- Streaming now works with auto-selected models (including `--model free`) when `--stream on|auto`.
 
 ## 0.6.0 - 2025-12-25
 

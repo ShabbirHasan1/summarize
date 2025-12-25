@@ -2828,7 +2828,7 @@ export async function runCli(
         summaryResult = await runSummaryAttempt({
           attempt,
           prompt: promptPayload,
-          allowStreaming: requestedModel.kind === 'fixed',
+          allowStreaming: streamingEnabled,
           onModelChosen: onModelChosen ?? null,
           cli: cliContext,
         })
@@ -3971,7 +3971,7 @@ export async function runCli(
         summaryResult = await runSummaryAttempt({
           attempt,
           prompt,
-          allowStreaming: requestedModel.kind === 'fixed',
+          allowStreaming: streamingEnabled,
           onModelChosen,
         })
         usedAttempt = attempt
