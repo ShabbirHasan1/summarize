@@ -4,6 +4,7 @@ import type {
   ConvertHtmlToMarkdown,
   LinkPreviewDeps,
   LinkPreviewProgressEvent,
+  ResolveTwitterCookies,
   ScrapeWithFirecrawl,
   TranscriptCache,
 } from './deps.js'
@@ -22,6 +23,7 @@ export interface LinkPreviewClientOptions {
   convertHtmlToMarkdown?: ConvertHtmlToMarkdown | null
   transcriptCache?: TranscriptCache | null
   readTweetWithBird?: LinkPreviewDeps['readTweetWithBird']
+  resolveTwitterCookies?: ResolveTwitterCookies | null
   onProgress?: ((event: LinkPreviewProgressEvent) => void) | null
 }
 
@@ -37,6 +39,8 @@ export function createLinkPreviewClient(options: LinkPreviewClientOptions = {}):
   const transcriptCache: TranscriptCache | null = options.transcriptCache ?? null
   const readTweetWithBird =
     typeof options.readTweetWithBird === 'function' ? options.readTweetWithBird : null
+  const resolveTwitterCookies =
+    typeof options.resolveTwitterCookies === 'function' ? options.resolveTwitterCookies : null
   const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null
 
   return {
@@ -51,6 +55,7 @@ export function createLinkPreviewClient(options: LinkPreviewClientOptions = {}):
         convertHtmlToMarkdown,
         transcriptCache,
         readTweetWithBird,
+        resolveTwitterCookies,
         onProgress,
       }),
   }

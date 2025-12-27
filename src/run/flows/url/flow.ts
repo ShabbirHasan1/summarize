@@ -12,6 +12,7 @@ import { createWebsiteProgress } from '../../../tty/website-progress.js'
 import { assertAssetMediaTypeSupported } from '../../attachments.js'
 import { readTweetWithBird } from '../../bird.js'
 import { UVX_TIP } from '../../constants.js'
+import { resolveTwitterCookies } from '../../cookies/twitter.js'
 import { hasBirdCli, hasUvxCli } from '../../env.js'
 import {
   estimateWhisperTranscriptionCostUsd,
@@ -122,6 +123,15 @@ export async function runUrlFlow({
     scrapeWithFirecrawl,
     convertHtmlToMarkdown: markdown.convertHtmlToMarkdown,
     readTweetWithBird: readTweetWithBirdClient,
+    resolveTwitterCookies: async (_args) => {
+      const res = await resolveTwitterCookies({ env: ctx.env })
+      return {
+        cookieHeader: res.cookies.cookieHeader,
+        ct0: res.cookies.ct0,
+        source: res.cookies.source,
+        warnings: res.warnings,
+      }
+    },
     fetch: ctx.trackedFetch,
     transcriptCache,
     onProgress: websiteProgress?.onProgress ?? null,

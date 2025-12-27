@@ -2,7 +2,6 @@ import { isWhisperCppReady } from '../../../transcription/whisper.js'
 import { isTwitterStatusUrl } from '../../link-preview/content/twitter-utils.js'
 import { normalizeTranscriptText } from '../normalize.js'
 import type { ProviderContext, ProviderFetchOptions, ProviderResult } from '../types.js'
-import { resolveTwitterCookies } from './twitter-cookies.js'
 
 export const canHandle = (): boolean => true
 
@@ -46,18 +45,16 @@ export const fetchTranscript = async (
 
   attemptedProviders.push('yt-dlp')
 
-  const { cookies, warnings } = await resolveTwitterCookies({})
-  if (warnings.length > 0) {
-    notes.push(...warnings)
-  }
+  const resolved = options.resolveTwitterCookies
+    ? await options.resolveTwitterCookies({ url: context.url })
+    : null
+  if (resolved?.warnings?.length) notes.push(...resolved.warnings)
 
   const extraArgs: string[] = []
-  if (cookies.cookieHeader && cookies.ct0) {
-    extraArgs.push('--add-header', `Cookie: ${cookies.cookieHeader}`)
-    extraArgs.push('--add-header', `x-csrf-token: ${cookies.ct0}`)
-    if (cookies.source) {
-      notes.push(`Using X cookies from ${cookies.source}`)
-    }
+  if (resolved?.cookieHeader && resolved.ct0) {
+    extraArgs.push('--add-header', `Cookie: ${resolved.cookieHeader}`)
+    extraArgs.push('--add-header', `x-csrf-token: ${resolved.ct0}`)
+    if (resolved.source) notes.push(`Using X cookies from ${resolved.source}`)
   }
 
   const mod = await import('./youtube/yt-dlp.js')
@@ -83,7 +80,7 @@ export const fetchTranscript = async (
         provider: 'generic',
         kind: 'twitter',
         transcriptionProvider: ytdlpResult.provider,
-        cookieSource: cookies.source ?? null,
+        cookieSource: resolved?.source ?? null,
       },
       notes: notes.length > 0 ? notes.join('; ') : null,
     }

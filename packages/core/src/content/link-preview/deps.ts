@@ -137,6 +137,15 @@ export type ReadTweetWithBird = (args: {
   timeoutMs: number
 }) => Promise<BirdTweetPayload | null>
 
+export type TwitterCookieHeaders = {
+  cookieHeader: string | null
+  ct0: string | null
+  source?: string | null
+  warnings?: string[]
+}
+
+export type ResolveTwitterCookies = (args: { url: string }) => Promise<TwitterCookieHeaders>
+
 export interface TranscriptCacheGetResult {
   content: string | null
   source: TranscriptSource | null
@@ -169,5 +178,6 @@ export interface LinkPreviewDeps {
   convertHtmlToMarkdown: ConvertHtmlToMarkdown | null
   transcriptCache: TranscriptCache | null
   readTweetWithBird?: ReadTweetWithBird | null
+  resolveTwitterCookies?: ResolveTwitterCookies | null
   onProgress?: ((event: LinkPreviewProgressEvent) => void) | null
 }

@@ -11,6 +11,9 @@ importers:
       '@steipete/summarize-core':
         specifier: workspace:*
         version: link:packages/core
+      '@steipete/sweet-cookie':
+        specifier: github:steipete/sweet-cookie#path:packages/core
+        version: https://codeload.github.com/steipete/sweet-cookie/tar.gz/78940b2d12b0198e3db6af9db137b06b2bd3b1ea#path:packages/core
     devDependencies:
       '@ai-sdk/anthropic':
         specifier: 3.0.1
@@ -118,9 +121,6 @@ importers:
       '@mozilla/readability':
         specifier: 0.6.0
         version: 0.6.0
-      '@steipete/sweet-cookie':
-        specifier: github:steipete/sweet-cookie#path:packages/core
-        version: https://codeload.github.com/steipete/sweet-cookie/tar.gz/78940b2d12b0198e3db6af9db137b06b2bd3b1ea#path:packages/core
       cheerio:
         specifier: ^1.1.2
         version: 1.1.2

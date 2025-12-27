@@ -56,7 +56,8 @@
     "release": "bash scripts/release.sh"
   },
   "dependencies": {
-    "@steipete/summarize-core": "workspace:*"
+    "@steipete/summarize-core": "workspace:*",
+    "@steipete/sweet-cookie": "github:steipete/sweet-cookie#path:packages/core"
   },
   "devDependencies": {
     "@ai-sdk/anthropic": "3.0.1",

@@ -1,5 +1,9 @@
 import type { YoutubeTranscriptMode } from '../link-preview/content/types.js'
-import type { LinkPreviewProgressEvent, ScrapeWithFirecrawl } from '../link-preview/deps.js'
+import type {
+  LinkPreviewProgressEvent,
+  ResolveTwitterCookies,
+  ScrapeWithFirecrawl,
+} from '../link-preview/deps.js'
 import type { TranscriptResolution, TranscriptSource } from '../link-preview/types.js'
 
 export type TranscriptService = 'youtube' | 'podcast' | 'generic'
@@ -18,6 +22,7 @@ export interface ProviderFetchOptions {
   ytDlpPath: string | null
   falApiKey: string | null
   openaiApiKey: string | null
+  resolveTwitterCookies?: ResolveTwitterCookies | null
   onProgress?: ((event: LinkPreviewProgressEvent) => void) | null
 }
 

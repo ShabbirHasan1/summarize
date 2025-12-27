@@ -2,6 +2,7 @@ import { createLinkPreviewClient } from '@steipete/summarize-core/content'
 import { countTokens } from 'gpt-tokenizer'
 
 import { buildLinkSummaryPrompt } from '../prompts/index.js'
+import { resolveTwitterCookies } from '../run/cookies/twitter.js'
 import { buildFinishLineText, buildLengthPartsForFinishLine } from '../run/finish-line.js'
 
 import { countWords, formatInputSummary } from './meta.js'
@@ -196,6 +197,15 @@ export async function streamSummaryForUrl({
     falApiKey: ctx.falApiKey,
     openaiApiKey: ctx.openaiTranscriptionKey,
     scrapeWithFirecrawl: null,
+    resolveTwitterCookies: async (_args) => {
+      const res = await resolveTwitterCookies({ env })
+      return {
+        cookieHeader: res.cookies.cookieHeader,
+        ct0: res.cookies.ct0,
+        source: res.cookies.source,
+        warnings: res.warnings,
+      }
+    },
     onProgress: (event) => {
       const msg = formatProgress(event)
       if (msg) writeStatus?.(msg)

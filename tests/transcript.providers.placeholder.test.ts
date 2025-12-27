@@ -102,11 +102,6 @@ describe('placeholder transcript providers', () => {
       notes: [],
     })
 
-    const prevAuth = process.env.AUTH_TOKEN
-    const prevCt0 = process.env.CT0
-    process.env.AUTH_TOKEN = 'auth'
-    process.env.CT0 = 'csrf'
-
     const options: ProviderFetchOptions = {
       fetch: noopFetch as unknown as typeof fetch,
       apifyApiToken: null,
@@ -114,26 +109,16 @@ describe('placeholder transcript providers', () => {
       ytDlpPath: '/usr/local/bin/yt-dlp',
       falApiKey: null,
       openaiApiKey: 'sk-test',
+      resolveTwitterCookies: async () => ({
+        cookieHeader: 'auth_token=auth; ct0=csrf',
+        ct0: 'csrf',
+        source: 'env AUTH_TOKEN',
+        warnings: [],
+      }),
     }
 
-    let result: Awaited<ReturnType<typeof generic.fetchTranscript>>
-    try {
-      result = await generic.fetchTranscript(
-        contextFor('https://x.com/example/status/123'),
-        options
-      )
-    } finally {
-      if (prevAuth === undefined) {
-        delete process.env.AUTH_TOKEN
-      } else {
-        process.env.AUTH_TOKEN = prevAuth
-      }
-      if (prevCt0 === undefined) {
-        delete process.env.CT0
-      } else {
-        process.env.CT0 = prevCt0
-      }
-    }
+    const result: Awaited<ReturnType<typeof generic.fetchTranscript>> =
+      await generic.fetchTranscript(contextFor('https://x.com/example/status/123'), options)
 
     expect(mocks.fetchTranscriptWithYtDlp).toHaveBeenCalledWith(
       expect.objectContaining({
