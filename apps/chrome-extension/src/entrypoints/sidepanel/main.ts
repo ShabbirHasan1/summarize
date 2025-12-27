@@ -46,6 +46,8 @@ const subtitleEl = byId<HTMLDivElement>('subtitle')
 const drawerEl = byId<HTMLElement>('drawer')
 const setupEl = byId<HTMLDivElement>('setup')
 const statusEl = byId<HTMLDivElement>('status')
+const statusTextEl = byId<HTMLSpanElement>('statusText')
+const statusPctEl = byId<HTMLSpanElement>('statusPct')
 const renderEl = byId<HTMLElement>('render')
 const metricsEl = byId<HTMLDivElement>('metrics')
 
@@ -94,12 +96,36 @@ function ensureSelectValue(select: HTMLSelectElement, value: unknown): string {
   return normalized
 }
 
+function extractTrailingPercent(input: string): {
+  text: string
+  percent: string | null
+  raw: string
+} {
+  const raw = input
+  const trimmed = input.trim()
+  if (!trimmed) return { text: '', percent: null, raw }
+
+  // Match "... 34%" or "... (34%)" at the end, and split it out for a stronger visual treatment.
+  const m = trimmed.match(/^(?<text>.*?)(?:\s*[([]?(?<pct>\d{1,3})%[)\]]?)\s*$/)
+  if (!m?.groups) return { text: trimmed, percent: null, raw }
+  const pctNum = Number(m.groups.pct)
+  if (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100)
+    return { text: trimmed, percent: null, raw }
+  const text = (m.groups.text ?? '').trim()
+  if (!text) return { text: trimmed, percent: null, raw }
+  return { text, percent: `${pctNum}%`, raw }
+}
+
 function setStatus(text: string) {
-  statusEl.textContent = text
-  const isError = text.toLowerCase().startsWith('error:') || text.toLowerCase().includes(' error')
+  const split = extractTrailingPercent(text)
+  statusTextEl.textContent = split.text
+  statusPctEl.textContent = split.percent ?? ''
+
+  const isError =
+    split.raw.toLowerCase().startsWith('error:') || split.raw.toLowerCase().includes(' error')
   statusEl.classList.toggle('error', isError)
-  statusEl.classList.toggle('running', Boolean(text.trim()) && !isError)
-  statusEl.classList.toggle('hidden', !text.trim())
+  statusEl.classList.toggle('running', Boolean(split.raw.trim()) && !isError)
+  statusEl.classList.toggle('hidden', !split.raw.trim())
 }
 
 window.addEventListener('error', (event) => {
