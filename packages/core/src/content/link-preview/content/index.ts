@@ -1,6 +1,7 @@
 import { resolveTranscriptForLink } from '../../transcript/index.js'
 import { isYouTubeUrl } from '../../url.js'
 import type { FirecrawlScrapeResult, LinkPreviewDeps } from '../deps.js'
+import type { CacheMode, TranscriptResolution } from '../types.js'
 import type { FirecrawlDiagnostics } from '../types.js'
 import { normalizeForPrompt } from './cleaner.js'
 import { MIN_READABILITY_CONTENT_CHARACTERS } from './constants.js'
@@ -26,6 +27,24 @@ import {
   resolveTimeoutMs,
   selectBaseContent,
 } from './utils.js'
+
+const MAX_TWITTER_TEXT_FOR_TRANSCRIPT = 1000
+
+const buildSkippedTwitterTranscript = (
+  cacheMode: CacheMode,
+  textLength: number
+): TranscriptResolution => ({
+  text: null,
+  source: null,
+  diagnostics: {
+    cacheMode,
+    cacheStatus: cacheMode === 'bypass' ? 'bypassed' : 'unknown',
+    textProvided: false,
+    provider: null,
+    attemptedProviders: [],
+    notes: `Skipped yt-dlp transcript for long-form tweet text (${textLength} chars)`,
+  },
+})
 
 export async function fetchLinkContent(
   url: string,
@@ -237,10 +256,13 @@ export async function fetchLinkContent(
       const title = tweet?.author?.username ? `@${tweet.author.username}` : null
       const description = null
       const siteName = 'X'
-      const transcriptResolution = await resolveTranscriptForLink(url, null, deps, {
-        youtubeTranscriptMode,
-        cacheMode,
-      })
+      const skipTranscript = text.length >= MAX_TWITTER_TEXT_FOR_TRANSCRIPT
+      const transcriptResolution = skipTranscript
+        ? buildSkippedTwitterTranscript(cacheMode, text.length)
+        : await resolveTranscriptForLink(url, null, deps, {
+            youtubeTranscriptMode,
+            cacheMode,
+          })
       const transcriptDiagnostics = ensureTranscriptDiagnostics(
         transcriptResolution,
         cacheMode ?? 'default'
