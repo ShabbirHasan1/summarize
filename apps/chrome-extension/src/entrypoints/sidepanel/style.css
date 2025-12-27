@@ -1,28 +1,230 @@
 :root {
   color-scheme: light dark;
-  accent-color: auto;
-
-  --bg0: Canvas;
-  --bg1: Canvas;
-  --bg2: Canvas;
-  --panel: Canvas;
-  --surface: Canvas;
-  --border: ButtonBorder;
-  --text: CanvasText;
-  --muted: GrayText;
-  --accent: AccentColor;
-  --ui-focus: Highlight;
-  --ui-link: LinkText;
-
-  --shadow: none;
-  --btn-bg: ButtonFace;
-  --btn-border: ButtonBorder;
-  --field-bg: Field;
+  accent-color: var(--accent);
+  --ui-focus: color-mix(in srgb, var(--accent) 70%, var(--text));
+  --ui-link: color-mix(in srgb, var(--accent) 82%, var(--text));
 
   --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-size: 14px;
 }
 
+:root[data-mode='light'] {
+  color-scheme: light;
+}
+
+:root[data-mode='dark'] {
+  color-scheme: dark;
+}
+
+:root[data-mode='system'] {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root,
+  :root[data-theme='slate'][data-mode='system'] {
+    --bg0: #f5f7fb;
+    --bg1: #ffffff;
+    --bg2: #eaf0f8;
+    --panel: rgba(255, 255, 255, 0.92);
+    --surface: rgba(246, 248, 252, 0.86);
+    --border: rgba(20, 30, 50, 0.12);
+    --text: #151b26;
+    --muted: #5d6778;
+    --accent: #4f76ff;
+    --shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    --btn-bg: rgba(248, 250, 255, 0.92);
+    --btn-border: rgba(20, 30, 50, 0.14);
+    --field-bg: rgba(255, 255, 255, 0.95);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  :root[data-theme='slate'][data-mode='system'] {
+    --bg0: #151a22;
+    --bg1: #1a2230;
+    --bg2: #0f141b;
+    --panel: rgba(23, 29, 40, 0.92);
+    --surface: rgba(17, 23, 32, 0.65);
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #e8edf7;
+    --muted: #aab6c9;
+    --accent: #7aa2ff;
+    --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    --btn-bg: rgba(22, 28, 38, 0.7);
+    --btn-border: rgba(255, 255, 255, 0.14);
+    --field-bg: rgba(14, 18, 26, 0.7);
+  }
+}
+
+:root[data-theme='slate'][data-mode='light'] {
+  --bg0: #f5f7fb;
+  --bg1: #ffffff;
+  --bg2: #eaf0f8;
+  --panel: rgba(255, 255, 255, 0.92);
+  --surface: rgba(246, 248, 252, 0.86);
+  --border: rgba(20, 30, 50, 0.12);
+  --text: #151b26;
+  --muted: #5d6778;
+  --accent: #4f76ff;
+  --shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --btn-bg: rgba(248, 250, 255, 0.92);
+  --btn-border: rgba(20, 30, 50, 0.14);
+  --field-bg: rgba(255, 255, 255, 0.95);
+}
+
+:root[data-theme='slate'][data-mode='dark'] {
+  --bg0: #151a22;
+  --bg1: #1a2230;
+  --bg2: #0f141b;
+  --panel: rgba(23, 29, 40, 0.92);
+  --surface: rgba(17, 23, 32, 0.65);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #e8edf7;
+  --muted: #aab6c9;
+  --accent: #7aa2ff;
+  --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  --btn-bg: rgba(22, 28, 38, 0.7);
+  --btn-border: rgba(255, 255, 255, 0.14);
+  --field-bg: rgba(14, 18, 26, 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme='cedar'][data-mode='system'] {
+    --bg0: #fbf6f1;
+    --bg1: #fffdf9;
+    --bg2: #f1e8dd;
+    --panel: rgba(255, 253, 249, 0.95);
+    --surface: rgba(250, 242, 234, 0.86);
+    --border: rgba(70, 40, 25, 0.14);
+    --text: #2a2017;
+    --muted: #7a6a5f;
+    --accent: #c46b2a;
+    --shadow: 0 12px 28px rgba(60, 40, 25, 0.12);
+    --btn-bg: rgba(252, 245, 238, 0.92);
+    --btn-border: rgba(70, 40, 25, 0.18);
+    --field-bg: rgba(255, 251, 246, 0.95);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='cedar'][data-mode='system'] {
+    --bg0: #1c1713;
+    --bg1: #221b16;
+    --bg2: #120f0c;
+    --panel: rgba(33, 26, 21, 0.94);
+    --surface: rgba(24, 19, 15, 0.7);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #f2e7dc;
+    --muted: #bdaea1;
+    --accent: #e19b63;
+    --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    --btn-bg: rgba(30, 24, 19, 0.76);
+    --btn-border: rgba(255, 255, 255, 0.12);
+    --field-bg: rgba(22, 17, 13, 0.7);
+  }
+}
+
+:root[data-theme='cedar'][data-mode='light'] {
+  --bg0: #fbf6f1;
+  --bg1: #fffdf9;
+  --bg2: #f1e8dd;
+  --panel: rgba(255, 253, 249, 0.95);
+  --surface: rgba(250, 242, 234, 0.86);
+  --border: rgba(70, 40, 25, 0.14);
+  --text: #2a2017;
+  --muted: #7a6a5f;
+  --accent: #c46b2a;
+  --shadow: 0 12px 28px rgba(60, 40, 25, 0.12);
+  --btn-bg: rgba(252, 245, 238, 0.92);
+  --btn-border: rgba(70, 40, 25, 0.18);
+  --field-bg: rgba(255, 251, 246, 0.95);
+}
+
+:root[data-theme='cedar'][data-mode='dark'] {
+  --bg0: #1c1713;
+  --bg1: #221b16;
+  --bg2: #120f0c;
+  --panel: rgba(33, 26, 21, 0.94);
+  --surface: rgba(24, 19, 15, 0.7);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #f2e7dc;
+  --muted: #bdaea1;
+  --accent: #e19b63;
+  --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  --btn-bg: rgba(30, 24, 19, 0.76);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --field-bg: rgba(22, 17, 13, 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme='mint'][data-mode='system'] {
+    --bg0: #f1faf7;
+    --bg1: #fbfffd;
+    --bg2: #e4f3ef;
+    --panel: rgba(251, 255, 253, 0.94);
+    --surface: rgba(238, 249, 245, 0.88);
+    --border: rgba(20, 60, 52, 0.14);
+    --text: #132422;
+    --muted: #60736e;
+    --accent: #2a9d8f;
+    --shadow: 0 12px 28px rgba(10, 45, 38, 0.12);
+    --btn-bg: rgba(239, 249, 245, 0.92);
+    --btn-border: rgba(20, 60, 52, 0.16);
+    --field-bg: rgba(252, 255, 254, 0.95);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='mint'][data-mode='system'] {
+    --bg0: #0f1917;
+    --bg1: #14201e;
+    --bg2: #0a1211;
+    --panel: rgba(19, 30, 28, 0.92);
+    --surface: rgba(13, 22, 21, 0.7);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #e6f3f0;
+    --muted: #a6bdb7;
+    --accent: #5ed0b6;
+    --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    --btn-bg: rgba(17, 27, 26, 0.76);
+    --btn-border: rgba(255, 255, 255, 0.12);
+    --field-bg: rgba(11, 18, 17, 0.7);
+  }
+}
+
+:root[data-theme='mint'][data-mode='light'] {
+  --bg0: #f1faf7;
+  --bg1: #fbfffd;
+  --bg2: #e4f3ef;
+  --panel: rgba(251, 255, 253, 0.94);
+  --surface: rgba(238, 249, 245, 0.88);
+  --border: rgba(20, 60, 52, 0.14);
+  --text: #132422;
+  --muted: #60736e;
+  --accent: #2a9d8f;
+  --shadow: 0 12px 28px rgba(10, 45, 38, 0.12);
+  --btn-bg: rgba(239, 249, 245, 0.92);
+  --btn-border: rgba(20, 60, 52, 0.16);
+  --field-bg: rgba(252, 255, 254, 0.95);
+}
+
+:root[data-theme='mint'][data-mode='dark'] {
+  --bg0: #0f1917;
+  --bg1: #14201e;
+  --bg2: #0a1211;
+  --panel: rgba(19, 30, 28, 0.92);
+  --surface: rgba(13, 22, 21, 0.7);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #e6f3f0;
+  --muted: #a6bdb7;
+  --accent: #5ed0b6;
+  --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  --btn-bg: rgba(17, 27, 26, 0.76);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --field-bg: rgba(11, 18, 17, 0.7);
+}
 * {
   box-sizing: border-box;
 }
@@ -33,7 +235,19 @@ body {
 }
 
 html {
-  background: Canvas;
+  background:
+    radial-gradient(
+      880px 520px at 18% -12%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      880px 520px at 110% 12%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 65%, var(--bg2) 100%);
+  background-attachment: fixed;
 }
 
 body {
@@ -42,7 +256,7 @@ body {
   font-family: var(--font-body);
   font-size: var(--font-size);
   min-height: 100vh;
-  background: Canvas;
+  background: transparent;
 }
 
 header {
@@ -104,7 +318,7 @@ button {
 }
 
 button:hover {
-  border-color: rgba(243, 198, 122, 0.35);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--btn-border));
 }
 
 button.primary {
@@ -159,9 +373,13 @@ button.ghost:hover {
 
 .drawerGrid {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: end;
+}
+
+.drawerGrid .wide {
+  grid-column: 1 / -1;
 }
 
 .drawer label {
@@ -314,7 +532,7 @@ main {
 }
 
 .setup {
-  border: 1px solid rgba(243, 198, 122, 0.25);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   background: var(--surface);
   border-radius: 14px;
   padding: 12px;

@@ -2,6 +2,7 @@ import MarkdownIt from 'markdown-it'
 
 import { buildIdleSubtitle } from '../../lib/header'
 import { loadSettings, patchSettings } from '../../lib/settings'
+import { applyTheme, type ColorMode, type ColorScheme } from '../../lib/theme'
 import { parseSseStream } from '../../lib/sse'
 import { splitStatusPercent } from '../../lib/status'
 import { generateToken } from '../../lib/token'
@@ -61,6 +62,8 @@ const autoEl = byId<HTMLInputElement>('auto')
 const modelEl = byId<HTMLInputElement>('model')
 const fontEl = byId<HTMLSelectElement>('font')
 const sizeEl = byId<HTMLInputElement>('size')
+const schemeEl = byId<HTMLSelectElement>('scheme')
+const modeEl = byId<HTMLSelectElement>('mode')
 
 const md = new MarkdownIt({
   html: false,
@@ -441,6 +444,20 @@ sizeEl.addEventListener('input', () => {
   })()
 })
 
+schemeEl.addEventListener('change', () => {
+  void (async () => {
+    const next = await patchSettings({ colorScheme: schemeEl.value as ColorScheme })
+    applyTheme({ scheme: next.colorScheme, mode: next.colorMode })
+  })()
+})
+
+modeEl.addEventListener('change', () => {
+  void (async () => {
+    const next = await patchSettings({ colorMode: modeEl.value as ColorMode })
+    applyTheme({ scheme: next.colorScheme, mode: next.colorMode })
+  })()
+})
+
 void (async () => {
   const s = await loadSettings()
   const fontFamily = ensureSelectValue(fontEl, s.fontFamily)
@@ -448,7 +465,10 @@ void (async () => {
   sizeEl.value = String(s.fontSize)
   modelEl.value = s.model
   autoEl.checked = s.autoSummarize
+  schemeEl.value = s.colorScheme
+  modeEl.value = s.colorMode
   applyTypography(fontEl.value, s.fontSize)
+  applyTheme({ scheme: s.colorScheme, mode: s.colorMode })
   toggleDrawer(false, { animate: false })
   chrome.runtime.onMessage.addListener((msg: BgToPanel) => {
     handleBgMessage(msg)

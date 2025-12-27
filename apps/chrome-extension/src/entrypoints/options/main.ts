@@ -1,5 +1,6 @@
 import { readPresetOrCustomValue, resolvePresetOrCustom } from '../../lib/combo'
 import { defaultSettings, loadSettings, saveSettings } from '../../lib/settings'
+import { applyTheme, type ColorMode, type ColorScheme } from '../../lib/theme'
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id)
@@ -19,6 +20,8 @@ const languageCustomEl = byId<HTMLInputElement>('languageCustom')
 const promptOverrideEl = byId<HTMLTextAreaElement>('promptOverride')
 const autoEl = byId<HTMLInputElement>('auto')
 const maxCharsEl = byId<HTMLInputElement>('maxChars')
+const colorSchemeEl = byId<HTMLSelectElement>('colorScheme')
+const colorModeEl = byId<HTMLSelectElement>('colorMode')
 const fontFamilyEl = byId<HTMLInputElement>('fontFamily')
 const fontSizeEl = byId<HTMLInputElement>('fontSize')
 
@@ -72,8 +75,11 @@ async function load() {
   promptOverrideEl.value = s.promptOverride
   autoEl.checked = s.autoSummarize
   maxCharsEl.value = String(s.maxChars)
+  colorSchemeEl.value = s.colorScheme
+  colorModeEl.value = s.colorMode
   fontFamilyEl.value = s.fontFamily
   fontSizeEl.value = String(s.fontSize)
+  applyTheme({ scheme: s.colorScheme, mode: s.colorMode })
 }
 
 lengthPresetEl.addEventListener('change', () => {
@@ -84,6 +90,18 @@ languagePresetEl.addEventListener('change', () => {
   languageCustomEl.hidden = languagePresetEl.value !== 'custom'
   if (!languageCustomEl.hidden) languageCustomEl.focus()
 })
+colorSchemeEl.addEventListener('change', () =>
+  applyTheme({
+    scheme: colorSchemeEl.value as ColorScheme,
+    mode: colorModeEl.value as ColorMode,
+  })
+)
+colorModeEl.addEventListener('change', () =>
+  applyTheme({
+    scheme: colorSchemeEl.value as ColorScheme,
+    mode: colorModeEl.value as ColorMode,
+  })
+)
 
 formEl.addEventListener('submit', (e) => {
   e.preventDefault()
@@ -105,6 +123,8 @@ formEl.addEventListener('submit', (e) => {
       promptOverride: promptOverrideEl.value || defaultSettings.promptOverride,
       autoSummarize: autoEl.checked,
       maxChars: Number(maxCharsEl.value) || defaultSettings.maxChars,
+      colorScheme: (colorSchemeEl.value as ColorScheme) || defaultSettings.colorScheme,
+      colorMode: (colorModeEl.value as ColorMode) || defaultSettings.colorMode,
       fontFamily: fontFamilyEl.value || defaultSettings.fontFamily,
       fontSize: Number(fontSizeEl.value) || defaultSettings.fontSize,
     })

@@ -29,7 +29,7 @@
 
     <section id="drawer" class="drawer hidden" aria-label="Controls">
       <div class="drawerGrid">
-        <label class="model">
+        <label class="model wide">
           <span>Model</span>
           <input
             id="model"
@@ -44,6 +44,22 @@
             <option value="auto" label="Auto"></option>
             <option value="free" label="Free"></option>
           </datalist>
+        </label>
+        <label class="scheme">
+          <span>Scheme</span>
+          <select id="scheme">
+            <option value="slate">Slate</option>
+            <option value="cedar">Cedar</option>
+            <option value="mint">Mint</option>
+          </select>
+        </label>
+        <label class="mode">
+          <span>Mode</span>
+          <select id="mode">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
         </label>
         <label class="font">
           <span>Font</span>

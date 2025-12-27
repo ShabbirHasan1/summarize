@@ -1,3 +1,12 @@
+import {
+  defaultColorMode,
+  defaultColorScheme,
+  normalizeColorMode,
+  normalizeColorScheme,
+  type ColorMode,
+  type ColorScheme,
+} from './theme'
+
 export type Settings = {
   token: string
   autoSummarize: boolean
@@ -8,6 +17,8 @@ export type Settings = {
   maxChars: number
   fontFamily: string
   fontSize: number
+  colorScheme: ColorScheme
+  colorMode: ColorMode
 }
 
 const storageKey = 'settings'
@@ -68,6 +79,8 @@ export const defaultSettings: Settings = {
   maxChars: 120_000,
   fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   fontSize: 14,
+  colorScheme: defaultColorScheme,
+  colorMode: defaultColorMode,
 }
 
 export async function loadSettings(): Promise<Settings> {
@@ -86,6 +99,8 @@ export async function loadSettings(): Promise<Settings> {
     maxChars: typeof raw.maxChars === 'number' ? raw.maxChars : defaultSettings.maxChars,
     fontFamily: normalizeFontFamily(raw.fontFamily),
     fontSize: typeof raw.fontSize === 'number' ? raw.fontSize : defaultSettings.fontSize,
+    colorScheme: normalizeColorScheme(raw.colorScheme),
+    colorMode: normalizeColorMode(raw.colorMode),
   }
 }
 
@@ -98,6 +113,8 @@ export async function saveSettings(settings: Settings): Promise<void> {
       language: normalizeLanguage(settings.language),
       promptOverride: normalizePromptOverride(settings.promptOverride),
       fontFamily: normalizeFontFamily(settings.fontFamily),
+      colorScheme: normalizeColorScheme(settings.colorScheme),
+      colorMode: normalizeColorMode(settings.colorMode),
     },
   })
 }
