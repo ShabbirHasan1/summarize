@@ -74,15 +74,17 @@ async function launchExtension(): Promise<ExtensionHarness> {
   // Chromium extensions (MV3 service workers) are not reliably supported in true headless mode.
   // Default: keep UI out of the way; set SHOW_UI=1 for debugging.
   const showUi = process.env.SHOW_UI === '1'
+  const headless = process.env.HEADLESS === '1'
+  const hideUi = !showUi && !headless
   const args = [
-    ...(showUi
-      ? []
-      : ['--start-minimized', '--window-position=-10000,-10000', '--window-size=10,10']),
+    ...(hideUi
+      ? ['--start-minimized', '--window-position=-10000,-10000', '--window-size=10,10']
+      : []),
     `--disable-extensions-except=${extensionPath}`,
     `--load-extension=${extensionPath}`,
   ]
   const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
+    headless,
     args,
   })
 
@@ -417,6 +419,67 @@ test('auto summarize reruns after panel reopen', async () => {
     await waitForActiveTabUrl(harness, 'https://example.com')
     await sendPanelMessage(panel, { type: 'panel:ready' })
     await expect.poll(() => summarizeCalls).toBeGreaterThan(callsBeforeClose)
+    assertNoErrors(harness)
+  } finally {
+    await closeExtension(harness.context, harness.userDataDir)
+  }
+})
+
+test('sidepanel updates title while streaming on same URL', async () => {
+  const harness = await launchExtension()
+
+  try {
+    let releaseSse: (() => void) | null = null
+    const sseGate = new Promise<void>((resolve) => {
+      releaseSse = resolve
+    })
+    const sseBody = [
+      'event: chunk',
+      'data: {"text":"Hello"}',
+      '',
+      'event: done',
+      'data: {}',
+      '',
+    ].join('\n')
+    await harness.context.route(
+      /http:\/\/127\.0\.0\.1:8787\/v1\/summarize\/[^/]+\/events/,
+      async (route) => {
+        await sseGate
+        await route.fulfill({
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+          body: sseBody,
+        })
+      }
+    )
+
+    await seedSettings(harness, { token: 'test-token', autoSummarize: false })
+    const page = await openExtensionPage(harness, 'sidepanel.html', '#title')
+
+    await sendBgMessage(harness, {
+      type: 'run:start',
+      run: {
+        id: 'run-1',
+        url: 'https://example.com/watch?v=1',
+        title: 'Old Title',
+        model: 'auto',
+        reason: 'manual',
+      },
+    })
+    await expect(page.locator('#title')).toHaveText('Old Title')
+
+    await sendBgMessage(harness, {
+      type: 'ui:state',
+      state: buildUiState({
+        tab: { url: 'https://example.com/watch?v=1', title: 'New Title' },
+        settings: { autoSummarize: false, tokenPresent: true },
+        status: '',
+      }),
+    })
+    await expect(page.locator('#title')).toHaveText('New Title')
+
+    releaseSse?.()
+    await new Promise((resolve) => setTimeout(resolve, 200))
     assertNoErrors(harness)
   } finally {
     await closeExtension(harness.context, harness.userDataDir)

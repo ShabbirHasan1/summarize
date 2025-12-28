@@ -246,6 +246,10 @@ export default defineBackground(() => {
       return
     }
 
+    if (reason === 'spa-nav' || reason === 'tab-url-change') {
+      await new Promise((resolve) => setTimeout(resolve, 220))
+    }
+
     const tab = await getActiveTab()
     if (!tab?.id || !canSummarizeUrl(tab.url)) return
 
@@ -275,6 +279,9 @@ export default defineBackground(() => {
       return
     }
 
+    const resolvedTitle = tab.title?.trim() || extracted.title || null
+    const resolvedExtracted = { ...extracted, title: resolvedTitle }
+
     sendStatus('Requesting daemon…')
     inflightUrl = extracted.url
     let id: string
@@ -287,7 +294,7 @@ export default defineBackground(() => {
         },
         body: JSON.stringify(
           buildDaemonRequestBody({
-            extracted,
+            extracted: resolvedExtracted,
             settings,
             noCache: Boolean(opts?.refresh),
           })
@@ -310,7 +317,7 @@ export default defineBackground(() => {
 
     void send({
       type: 'run:start',
-      run: { id, url: extracted.url, title: extracted.title, model: settings.model, reason },
+      run: { id, url: extracted.url, title: resolvedTitle, model: settings.model, reason },
     })
   }
 

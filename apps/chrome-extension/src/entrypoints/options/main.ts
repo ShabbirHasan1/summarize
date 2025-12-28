@@ -1,6 +1,7 @@
 import { readPresetOrCustomValue, resolvePresetOrCustom } from '../../lib/combo'
 import { defaultSettings, loadSettings, saveSettings } from '../../lib/settings'
 import { applyTheme, type ColorMode, type ColorScheme } from '../../lib/theme'
+import { mountCheckbox } from '../../ui/zag-checkbox'
 import { mountOptionsPickers } from './pickers'
 
 declare const __SUMMARIZE_GIT_HASH__: string
@@ -21,13 +22,15 @@ const modelCustomEl = byId<HTMLInputElement>('modelCustom')
 const languagePresetEl = byId<HTMLSelectElement>('languagePreset')
 const languageCustomEl = byId<HTMLInputElement>('languageCustom')
 const promptOverrideEl = byId<HTMLTextAreaElement>('promptOverride')
-const autoEl = byId<HTMLInputElement>('auto')
+const autoToggleRoot = byId<HTMLDivElement>('autoToggle')
 const maxCharsEl = byId<HTMLInputElement>('maxChars')
 const pickersRoot = byId<HTMLDivElement>('pickersRoot')
 const fontFamilyEl = byId<HTMLInputElement>('fontFamily')
 const fontSizeEl = byId<HTMLInputElement>('fontSize')
 const buildInfoEl = document.getElementById('buildInfo')
 const daemonStatusEl = byId<HTMLDivElement>('daemonStatus')
+
+let autoValue = defaultSettings.autoSummarize
 
 const setStatus = (text: string) => {
   statusEl.textContent = text
@@ -291,6 +294,15 @@ const pickers = mountOptionsPickers(pickersRoot, {
   ...pickerHandlers,
 })
 
+const autoToggle = mountCheckbox(autoToggleRoot, {
+  id: 'options-auto',
+  label: 'Auto-summarize when panel is open',
+  checked: autoValue,
+  onCheckedChange: (checked) => {
+    autoValue = checked
+  },
+})
+
 async function load() {
   const s = await loadSettings()
   tokenEl.value = s.token
@@ -304,7 +316,15 @@ async function load() {
     languageCustomEl.value = resolved.customValue
   }
   promptOverrideEl.value = s.promptOverride
-  autoEl.checked = s.autoSummarize
+  autoValue = s.autoSummarize
+  autoToggle.update({
+    id: 'options-auto',
+    label: 'Auto-summarize when panel is open',
+    checked: autoValue,
+    onCheckedChange: (checked) => {
+      autoValue = checked
+    },
+  })
   maxCharsEl.value = String(s.maxChars)
   fontFamilyEl.value = s.fontFamily
   fontSizeEl.value = String(s.fontSize)
@@ -361,7 +381,7 @@ formEl.addEventListener('submit', (e) => {
         defaultValue: defaultSettings.language,
       }),
       promptOverride: promptOverrideEl.value || defaultSettings.promptOverride,
-      autoSummarize: autoEl.checked,
+      autoSummarize: autoValue,
       maxChars: Number(maxCharsEl.value) || defaultSettings.maxChars,
       colorScheme: currentScheme || defaultSettings.colorScheme,
       colorMode: currentMode || defaultSettings.colorMode,

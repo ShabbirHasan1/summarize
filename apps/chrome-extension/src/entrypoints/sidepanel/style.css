@@ -618,7 +618,7 @@ button.ghost:hover {
   z-index: 8;
 }
 
-.drawer label.toggleRow {
+.drawer .toggleRow {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -627,6 +627,58 @@ button.ghost:hover {
   color: var(--text);
   font-size: 12px;
   align-self: center;
+}
+
+.checkboxRoot {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxRoot[data-disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checkboxControl {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--field-bg);
+  display: grid;
+  place-items: center;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.checkboxControl[data-state='checked'] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 75%, transparent);
+  color: #fff;
+}
+
+.checkboxControl[data-focus-visible] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.checkboxIndicator {
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.checkboxControl[data-state='checked'] .checkboxIndicator {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.checkboxIndicator svg {
+  width: 12px;
+  height: 10px;
 }
 
 .drawerFooter {
@@ -936,8 +988,9 @@ input[type="range"] {
 
 .progress {
   position: absolute;
-  left: calc(-1 * var(--header-pad));
-  right: calc(-1 * var(--header-pad));
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
   bottom: 0;
   height: 1px;
   background: var(--border);

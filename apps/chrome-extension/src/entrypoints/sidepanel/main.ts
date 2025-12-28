@@ -5,6 +5,7 @@ import { defaultSettings, loadSettings, patchSettings } from '../../lib/settings
 import { parseSseStream } from '../../lib/sse'
 import { splitStatusPercent } from '../../lib/status'
 import { applyTheme } from '../../lib/theme'
+import { mountCheckbox } from '../../ui/zag-checkbox'
 import { generateToken } from '../../lib/token'
 import { mountSidepanelLengthPicker, mountSidepanelPickers } from './pickers'
 
@@ -60,7 +61,7 @@ const summarizeBtn = byId<HTMLButtonElement>('summarize')
 const drawerToggleBtn = byId<HTMLButtonElement>('drawerToggle')
 const refreshBtn = byId<HTMLButtonElement>('refresh')
 const advancedBtn = byId<HTMLButtonElement>('advanced')
-const autoEl = byId<HTMLInputElement>('auto')
+const autoToggleRoot = byId<HTMLDivElement>('autoToggle')
 const lengthRoot = byId<HTMLDivElement>('lengthRoot')
 const pickersRoot = byId<HTMLDivElement>('pickersRoot')
 const sizeEl = byId<HTMLInputElement>('size')
@@ -79,7 +80,6 @@ let streamController: AbortController | null = null
 let streamedAnyNonWhitespace = false
 let rememberedUrl = false
 let streaming = false
-let progressTimer = 0
 let showProgress = false
 let summaryFromCache: boolean | null = null
 let baseTitle = 'Summarize'
@@ -91,6 +91,7 @@ let lastMeta: { inputSummary: string | null; model: string | null; modelLabel: s
   modelLabel: null,
 }
 let drawerAnimation: Animation | null = null
+let autoValue = false
 
 function normalizeUrl(value: string) {
   try {
@@ -106,7 +107,13 @@ function urlsMatch(a: string, b: string) {
   const left = normalizeUrl(a)
   const right = normalizeUrl(b)
   if (left === right) return true
-  return left.startsWith(right) || right.startsWith(left)
+  const boundaryMatch = (longer: string, shorter: string) => {
+    if (!longer.startsWith(shorter)) return false
+    if (longer.length === shorter.length) return true
+    const next = longer[shorter.length]
+    return next === '/' || next === '?' || next === '&'
+  }
+  return boundaryMatch(left, right) || boundaryMatch(right, left)
 }
 
 function canSyncTabUrl(url: string | null | undefined): url is string {
@@ -170,21 +177,9 @@ function setStatus(text: string) {
     (trimmed.toLowerCase().startsWith('error:') || trimmed.toLowerCase().includes(' error'))
   const split = splitStatusPercent(text)
   if (split.percent && summaryFromCache !== true) {
-    showProgress = true
-    if (progressTimer) {
-      clearTimeout(progressTimer)
-      progressTimer = 0
-    }
-  } else if (!showProgress && trimmed && summaryFromCache !== true && !isError) {
-    if (streaming) {
-      armProgress()
-    } else {
-      if (progressTimer) {
-        clearTimeout(progressTimer)
-        progressTimer = 0
-      }
-      showProgress = true
-    }
+    armProgress()
+  } else if (trimmed && summaryFromCache !== true && !isError) {
+    armProgress()
   } else if (!trimmed && !streaming) {
     stopProgress()
   }
@@ -231,21 +226,12 @@ function updateHeader() {
 
 function armProgress() {
   if (summaryFromCache === true) return
-  showProgress = false
-  if (progressTimer) clearTimeout(progressTimer)
-  progressTimer = window.setTimeout(() => {
-    progressTimer = 0
-    if (!streaming) return
-    showProgress = true
-    updateHeader()
-  }, 240)
+  if (showProgress) return
+  showProgress = true
+  updateHeader()
 }
 
 function stopProgress() {
-  if (progressTimer) {
-    clearTimeout(progressTimer)
-    progressTimer = 0
-  }
   if (!showProgress) return
   showProgress = false
   updateHeader()
@@ -427,6 +413,16 @@ const pickers = mountSidepanelPickers(pickersRoot, {
 const lengthPicker = mountSidepanelLengthPicker(lengthRoot, {
   length: pickerSettings.length,
   onLengthChange: pickerHandlers.onLengthChange,
+})
+
+const autoToggle = mountCheckbox(autoToggleRoot, {
+  id: 'sidepanel-auto',
+  label: 'Auto summarize',
+  checked: autoValue,
+  onCheckedChange: (checked) => {
+    autoValue = checked
+    send({ type: 'panel:setAuto', value: checked })
+  },
 })
 
 type PlatformKind = 'mac' | 'windows' | 'linux' | 'other'
@@ -658,7 +654,16 @@ function maybeShowSetup(state: UiState) {
 }
 
 function updateControls(state: UiState) {
-  autoEl.checked = state.settings.autoSummarize
+  autoValue = state.settings.autoSummarize
+  autoToggle.update({
+    id: 'sidepanel-auto',
+    label: 'Auto summarize',
+    checked: autoValue,
+    onCheckedChange: (checked) => {
+      autoValue = checked
+      send({ type: 'panel:setAuto', value: checked })
+    },
+  })
   if (pickerSettings.length !== state.settings.length) {
     pickerSettings = { ...pickerSettings, length: state.settings.length }
     lengthPicker.update({
@@ -666,9 +671,15 @@ function updateControls(state: UiState) {
       onLengthChange: pickerHandlers.onLengthChange,
     })
   }
-  if (currentSource && !streaming) {
-    if (!state.tab.url || !urlsMatch(state.tab.url, currentSource.url)) {
+  if (currentSource) {
+    if (state.tab.url && !urlsMatch(state.tab.url, currentSource.url)) {
       currentSource = null
+      if (streamController) {
+        streamController.abort()
+        streamController = null
+      }
+      streaming = false
+      stopProgress()
       resetSummaryView()
     } else if (state.tab.title && state.tab.title !== currentSource.title) {
       currentSource = { ...currentSource, title: state.tab.title }
@@ -790,8 +801,6 @@ refreshBtn.addEventListener('click', () => send({ type: 'panel:summarize', refre
 drawerToggleBtn.addEventListener('click', () => toggleDrawer())
 advancedBtn.addEventListener('click', () => send({ type: 'panel:openOptions' }))
 
-autoEl.addEventListener('change', () => send({ type: 'panel:setAuto', value: autoEl.checked }))
-
 sizeEl.addEventListener('input', () => {
   void (async () => {
     const next = await patchSettings({ fontSize: Number(sizeEl.value) })
@@ -802,7 +811,16 @@ sizeEl.addEventListener('input', () => {
 void (async () => {
   const s = await loadSettings()
   sizeEl.value = String(s.fontSize)
-  autoEl.checked = s.autoSummarize
+  autoValue = s.autoSummarize
+  autoToggle.update({
+    id: 'sidepanel-auto',
+    label: 'Auto summarize',
+    checked: autoValue,
+    onCheckedChange: (checked) => {
+      autoValue = checked
+      send({ type: 'panel:setAuto', value: checked })
+    },
+  })
   pickerSettings = {
     scheme: s.colorScheme,
     mode: s.colorMode,
@@ -833,6 +851,19 @@ void (async () => {
 setInterval(() => {
   send({ type: 'panel:ping' })
 }, 25_000)
+
+let lastVisibility = document.visibilityState
+document.addEventListener('visibilitychange', () => {
+  const visible = document.visibilityState === 'visible'
+  const wasVisible = lastVisibility === 'visible'
+  if (visible && !wasVisible) {
+    send({ type: 'panel:ready' })
+    void syncWithActiveTab()
+  } else if (!visible && wasVisible) {
+    send({ type: 'panel:closed' })
+  }
+  lastVisibility = document.visibilityState
+})
 
 window.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' || !event.shiftKey) return
@@ -866,7 +897,6 @@ async function startStream(run: RunStart) {
   rememberedUrl = false
   currentSource = { url: run.url, title: run.title }
   summaryFromCache = null
-  stopProgress()
 
   markdown = ''
   renderEl.innerHTML = ''
