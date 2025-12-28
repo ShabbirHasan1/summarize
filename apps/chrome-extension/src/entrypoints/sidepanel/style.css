@@ -642,6 +642,11 @@ button.ghost:hover {
   flex-direction: row;
 }
 
+.checkboxRoot:hover .checkboxControl {
+  border-color: color-mix(in srgb, var(--ui-focus) 35%, var(--border));
+  background: color-mix(in srgb, var(--field-bg) 70%, var(--ui-focus));
+}
+
 .checkboxRoot[data-disabled] {
   opacity: 0.6;
   cursor: not-allowed;
