@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { countWords, formatInputSummary } from '../src/daemon/meta.js'
+import {
+  countWords,
+  estimateDurationSecondsFromWords,
+  formatInputSummary,
+} from '../src/daemon/meta.js'
 
 describe('daemon/meta', () => {
   describe('countWords', () => {
@@ -34,6 +38,19 @@ describe('daemon/meta', () => {
           characters: 10200,
         })
       ).toBe('10 min YouTube · 1.7k words · 10k chars')
+    })
+
+    it('does not round word-derived duration to whole minutes', () => {
+      const durationSeconds = estimateDurationSecondsFromWords(401)
+      expect(
+        formatInputSummary({
+          kindLabel: 'YouTube',
+          durationSeconds,
+          isDurationApproximate: true,
+          words: 401,
+          characters: null,
+        })
+      ).toBe('2.5 min YouTube · 401 words')
     })
 
     it('includes kind label without duration', () => {

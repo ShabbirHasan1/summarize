@@ -7,7 +7,7 @@ import { runUrlFlow } from '../run/flows/url/flow.js'
 import { buildUrlPrompt, summarizeExtractedUrl } from '../run/flows/url/summary.js'
 
 import { createDaemonUrlFlowContext } from './flow-context.js'
-import { countWords, formatInputSummary } from './meta.js'
+import { countWords, estimateDurationSecondsFromWords, formatInputSummary } from './meta.js'
 import { formatProgress } from './summarize-progress.js'
 
 export type VisiblePageInput = {
@@ -119,7 +119,7 @@ function buildInputSummaryForExtracted(extracted: ExtractedLinkContent): string 
       : null
   const estimatedDurationSeconds =
     transcriptWords != null && transcriptWords > 0
-      ? Math.max(60, Math.max(1, Math.round(transcriptWords / 160)) * 60)
+      ? estimateDurationSecondsFromWords(transcriptWords)
       : null
 
   const durationSeconds = hasTranscript ? (exactDurationSeconds ?? estimatedDurationSeconds) : null

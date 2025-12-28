@@ -12,6 +12,12 @@ export type InputSummaryArgs = {
   isDurationApproximate?: boolean
 }
 
+export function estimateDurationSecondsFromWords(words: number, { minSeconds = 60 } = {}): number {
+  const safe = typeof words === 'number' && Number.isFinite(words) ? words : 0
+  if (safe <= 0) return minSeconds
+  return Math.max(minSeconds, (safe / 160) * 60)
+}
+
 export function countWords(text: string): number {
   const trimmed = text.trim()
   if (!trimmed) return 0
