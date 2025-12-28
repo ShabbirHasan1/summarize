@@ -136,7 +136,7 @@
             </label>
             <label>
               <span>Firecrawl</span>
-              <span class="subtitle">Off, auto fallback, or always use Firecrawl for extraction.</span>
+              <span class="subtitle">Firecrawl fetches + cleans pages to Markdown via its API. Off, auto fallback, or always use it.</span>
               <select id="firecrawlMode">
                 <option value="">Default (auto)</option>
                 <option value="off">Off</option>
@@ -157,7 +157,7 @@
             </label>
             <label>
               <span>Preprocess</span>
-              <span class="subtitle">Preprocess files for model compatibility.</span>
+              <span class="subtitle">For file inputs: convert to text/Markdown first (PDF/Doc/etc) to improve model compatibility.</span>
               <select id="preprocessMode">
                 <option value="">Default (off)</option>
                 <option value="off">Off</option>
@@ -167,7 +167,7 @@
             </label>
             <label>
               <span>YouTube mode</span>
-              <span class="subtitle">Force a transcript source or skip auto captions.</span>
+              <span class="subtitle">Auto picks best transcript; Web uses YouTube captions; yt-dlp extracts audio for transcription; Apify is fallback; No-auto skips auto captions.</span>
               <select id="youtubeMode">
                 <option value="">Default (auto)</option>
                 <option value="no-auto">No auto captions</option>
