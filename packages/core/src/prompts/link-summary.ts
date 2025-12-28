@@ -17,21 +17,21 @@ const SUMMARY_LENGTH_DIRECTIVES: Record<SummaryLength, { guidance: string; forma
   },
   long: {
     guidance:
-      'Write three paragraphs: (1) summarize the claim and scope, (2) walk through the major supporting arguments or events, (3) explain implications, risks, or recommended next steps.',
+      'Write three short paragraphs that summarize the text in order of importance: (1) core claim and scope, (2) key supporting facts or events, (3) other notable details or conclusions stated in the source.',
     formatting:
-      'Keep paragraphs balanced (3–4 sentences each) and separate them with single blank lines. No bullet lists or headings.',
+      'Each paragraph should contain 2–4 sentences. Separate paragraphs with a blank line. Do not use bullet lists or headings.',
   },
   xl: {
     guidance:
-      'Produce a structured Markdown outline with short section headings (“Overview”, “Key Evidence”, “Implications”, “Next Steps”) followed by 2–3 bullet points under each heading. Surface quantitative details, quotes, or contrasting views when available.',
+      'Write a detailed narrative summary in 4–6 short paragraphs. Focus on what the text says (facts, events, arguments) and include concrete numbers or quotes when present.',
     formatting:
-      'Use level-3 Markdown headings (###) for each section followed by bullet lists. Bullets may span 1–2 sentences and can exceed 20 words when necessary.',
+      'Use plain paragraphs separated by single blank lines. No headings or bullet lists.',
   },
   xxl: {
     guidance:
-      'Produce a comprehensive Markdown report: start with a short executive summary paragraph, then add sections for Background, Detailed Findings, Implications, and Open Questions. Within sections, use bullet lists or short paragraphs to cover nuanced context, statistics, quotes, counterpoints, and recommended follow-up actions.',
+      'Write a comprehensive narrative summary in 6–10 short paragraphs. Cover background, main points, evidence, and stated outcomes in the source text; avoid adding implications or recommendations unless explicitly stated.',
     formatting:
-      'Use Markdown headings (###) for each section, combine paragraphs and bullet lists as needed, and ensure the overall response is substantial (multiple paragraphs and bullets totalling several hundred words) while remaining factual.',
+      'Use plain paragraphs separated by single blank lines. No headings or bullet lists.',
   },
 }
 
