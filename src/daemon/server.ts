@@ -9,9 +9,7 @@ import { type DaemonRequestedMode, resolveAutoDaemonMode } from './auto-mode.js'
 import type { DaemonConfig } from './config.js'
 import { DAEMON_HOST, DAEMON_PORT_DEFAULT } from './constants.js'
 import { buildModelPickerOptions } from './models.js'
-import {
-  resolveDaemonRunOverrides,
-} from './request-settings.js'
+import { resolveDaemonRunOverrides } from './request-settings.js'
 import { streamSummaryForUrl, streamSummaryForVisiblePage } from './summarize.js'
 
 type SessionEvent =

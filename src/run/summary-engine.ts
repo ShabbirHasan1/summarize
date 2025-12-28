@@ -26,6 +26,7 @@ export type SummaryEngineDeps = {
   timeoutMs: number
   retries: number
   streamingEnabled: boolean
+  streamingOutputMode?: 'line' | 'delta'
   plain: boolean
   verbose: boolean
   verboseColor: boolean
@@ -410,7 +411,9 @@ export function createSummaryEngine(deps: SummaryEngineDeps) {
 
       try {
         let cleared = false
+        const outputMode = deps.streamingOutputMode ?? 'line'
         for await (const delta of streamResult.textStream) {
+          const prevStreamed = streamed
           const merged = mergeStreamingChunk(streamed, delta)
           streamed = merged.next
           if (shouldStreamSummaryToStdout) {
@@ -418,15 +421,39 @@ export function createSummaryEngine(deps: SummaryEngineDeps) {
               const match = streamed.match(/^\n+/)
               if (match) plainFlushedLen = match[0].length
             }
-            if (streamed.length > plainFlushedLen) {
-              if (!cleared) {
+            if (outputMode === 'line') {
+              const lastNl = streamed.lastIndexOf('\n')
+              if (lastNl >= 0 && lastNl + 1 > plainFlushedLen) {
+                if (!cleared) {
+                  deps.clearProgressForStdout()
+                  if (isRichTty(deps.stdout)) deps.stdout.write('\n')
+                  cleared = true
+                }
                 deps.clearProgressForStdout()
-                if (isRichTty(deps.stdout)) deps.stdout.write('\n')
-                cleared = true
+                deps.stdout.write(streamed.slice(plainFlushedLen, lastNl + 1))
+                plainFlushedLen = lastNl + 1
               }
-              deps.clearProgressForStdout()
-              deps.stdout.write(streamed.slice(plainFlushedLen))
-              plainFlushedLen = streamed.length
+            } else {
+              const isAppendOnly = streamed.startsWith(prevStreamed)
+              if (streamed.length > plainFlushedLen && isAppendOnly) {
+                if (!cleared) {
+                  deps.clearProgressForStdout()
+                  if (isRichTty(deps.stdout)) deps.stdout.write('\n')
+                  cleared = true
+                }
+                deps.clearProgressForStdout()
+                deps.stdout.write(streamed.slice(plainFlushedLen))
+                plainFlushedLen = streamed.length
+              } else if (!isAppendOnly) {
+                if (!cleared) {
+                  deps.clearProgressForStdout()
+                  if (isRichTty(deps.stdout)) deps.stdout.write('\n')
+                  cleared = true
+                }
+                deps.clearProgressForStdout()
+                deps.stdout.write(streamed)
+                plainFlushedLen = streamed.length
+              }
             }
             continue
           }

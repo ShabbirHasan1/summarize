@@ -172,6 +172,7 @@ export function createDaemonUrlFlowContext(args: DaemonUrlFlowContextArgs): UrlF
     timeoutMs,
     retries,
     streamingEnabled: true,
+    streamingOutputMode: 'delta',
     plain: true,
     verbose: false,
     verboseColor: false,

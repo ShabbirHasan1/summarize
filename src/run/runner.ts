@@ -8,11 +8,7 @@ import {
   resolveCachePath,
 } from '../cache.js'
 import { loadSummarizeConfig } from '../config.js'
-import {
-  parseExtractFormat,
-  parseMetricsMode,
-  parseStreamMode,
-} from '../flags.js'
+import { parseExtractFormat, parseMetricsMode, parseStreamMode } from '../flags.js'
 import type { ExecFileFn } from '../markitdown.js'
 import type { FixedModelSpec } from '../model-spec.js'
 import { formatVersionLine } from '../version.js'
@@ -34,8 +30,8 @@ import { resolveRunInput } from './run-input.js'
 import { createRunMetrics } from './run-metrics.js'
 import { resolveModelSelection } from './run-models.js'
 import { resolveDesiredOutputTokens } from './run-output.js'
-import { resolveStreamSettings } from './run-stream.js'
 import { resolveCliRunSettings } from './run-settings.js'
+import { resolveStreamSettings } from './run-stream.js'
 import { createSummaryEngine } from './summary-engine.js'
 import { ansi, isRichTty, supportsColor } from './terminal.js'
 
@@ -243,11 +239,8 @@ export async function runCli(
     length: String(program.opts().length),
     firecrawl: String(program.opts().firecrawl),
     markdownMode:
-      typeof program.opts().markdownMode === 'string'
-        ? program.opts().markdownMode
-        : undefined,
-    markdown:
-      typeof program.opts().markdown === 'string' ? program.opts().markdown : undefined,
+      typeof program.opts().markdownMode === 'string' ? program.opts().markdownMode : undefined,
+    markdown: typeof program.opts().markdown === 'string' ? program.opts().markdown : undefined,
     format,
     preprocess: String(program.opts().preprocess),
     youtube: String(program.opts().youtube),

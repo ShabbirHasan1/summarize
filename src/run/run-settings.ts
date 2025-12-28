@@ -40,7 +40,10 @@ export type RunOverrides = {
   maxOutputTokensArg: number | null
 }
 
-export function resolveSummaryLength(raw: unknown, fallback = 'xl'): {
+export function resolveSummaryLength(
+  raw: unknown,
+  fallback = 'xl'
+): {
   lengthArg: LengthArg
   summaryLength: SummaryLengthTarget
 } {
@@ -152,7 +155,11 @@ export function resolveRunOverrides({
   })()
 
   const maxOutputTokensArg = (() => {
-    if (typeof maxOutputTokens === 'number' && Number.isFinite(maxOutputTokens) && maxOutputTokens > 0) {
+    if (
+      typeof maxOutputTokens === 'number' &&
+      Number.isFinite(maxOutputTokens) &&
+      maxOutputTokens > 0
+    ) {
       return Math.floor(maxOutputTokens)
     }
     if (typeof maxOutputTokens !== 'string') return null

@@ -94,10 +94,13 @@ export function createStreamController({
     onStatus('Connecting…')
 
     try {
-      const res = await (fetchImpl ?? fetch)(`http://127.0.0.1:8787/v1/summarize/${run.id}/events`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: nextController.signal,
-      })
+      const res = await (fetchImpl ?? fetch)(
+        `http://127.0.0.1:8787/v1/summarize/${run.id}/events`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: nextController.signal,
+        }
+      )
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       if (!res.body) throw new Error('Missing stream body')
 

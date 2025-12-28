@@ -267,10 +267,7 @@ export function buildFinishLineText({
   return formatFinishLineText(modelData, detailed)
 }
 
-export function formatFinishLineText(
-  model: FinishLineModel,
-  detailed: boolean
-): FinishLineText {
+export function formatFinishLineText(model: FinishLineModel, detailed: boolean): FinishLineText {
   const line = model.lineParts.join(' · ')
   if (!detailed || model.detailParts.length === 0) return { line, details: null }
   return { line, details: model.detailParts.join(' | ') }
