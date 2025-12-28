@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import http from 'node:http'
 import { loadSummarizeConfig } from '../config.js'
-import { createCacheStateFromConfig } from '../run/cache-state.js'
+import { createCacheStateFromConfig, refreshCacheStoreIfMissing } from '../run/cache-state.js'
 import { formatModelLabelForDisplay } from '../run/finish-line.js'
 import { type DaemonRequestedMode, resolveAutoDaemonMode } from './auto-mode.js'
 import type { DaemonConfig } from './config.js'
@@ -242,6 +242,7 @@ export async function runDaemonServer({
       }
 
       if (req.method === 'POST' && pathname === '/v1/summarize') {
+        await refreshCacheStoreIfMissing({ cacheState, transcriptNamespace: 'yt:auto' })
         let body: unknown
         try {
           body = await readJsonBody(req, 2_000_000)

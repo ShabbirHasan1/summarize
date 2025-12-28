@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+
 import {
   type CacheState,
   createCacheStore,
@@ -47,4 +49,27 @@ export async function createCacheStateFromConfig({
     maxBytes: cacheMaxBytes,
     path: cachePath,
   }
+}
+
+export async function refreshCacheStoreIfMissing({
+  cacheState,
+  transcriptNamespace = null,
+}: {
+  cacheState: CacheState
+  transcriptNamespace?: string | null
+}): Promise<boolean> {
+  if (cacheState.mode !== 'default') return false
+  const path = cacheState.path
+  if (!path) return false
+  const fileExists = existsSync(path)
+  if (cacheState.store && fileExists) return false
+  if (cacheState.store) {
+    cacheState.store.close()
+  }
+  cacheState.store = await createCacheStore({
+    path,
+    maxBytes: cacheState.maxBytes,
+    transcriptNamespace,
+  })
+  return true
 }
