@@ -14,6 +14,7 @@ const TOOLTIP_ID = '__summarize_hover_tooltip__'
 const STYLE_ID = '__summarize_hover_tooltip_style__'
 const ERRORISH_PATTERN =
   /(^error:|failed to load|failed to fetch|failed to connect|unable to load|unable to fetch|unable to connect|cannot access|cannot summarize|something went wrong|try again|technical error|privacy[- ]related|please disable|access denied|forbidden|captcha|verify you are human|enable javascript|cloudflare|rate limit|too many requests|temporarily unavailable|page not found|not found|404|403|500|shortened t\\.co|t\\.co url|no summary returned|summary failed|daemon unreachable|not logged in|log in to|login to|sign in to|formerly twitter|please provide the text content|provided content.*empty)/i
+const titleCache = new WeakMap<HTMLElement, string | null>()
 
 function isValidUrl(raw: string): boolean {
   return /^https?:\/\//i.test(raw)
@@ -37,6 +38,22 @@ function resolveUrl(anchor: HTMLAnchorElement): string | null {
 
 function clampText(input: string): string {
   return input.replace(/\s+/g, ' ').trim()
+}
+
+function muteNativeTooltip(anchor: HTMLElement) {
+  if (titleCache.has(anchor)) return
+  if (!anchor.hasAttribute('title')) return
+  const title = anchor.getAttribute('title')
+  titleCache.set(anchor, title)
+  anchor.removeAttribute('title')
+}
+
+function restoreNativeTooltip(anchor: HTMLElement | null) {
+  if (!anchor) return
+  if (!titleCache.has(anchor)) return
+  const title = titleCache.get(anchor)
+  titleCache.delete(anchor)
+  if (title != null) anchor.setAttribute('title', title)
 }
 
 function looksLikeErrorText(input: string): boolean {
@@ -143,6 +160,7 @@ function showTooltip(anchor: HTMLElement, text: string, { status = false } = {})
     hideTooltip()
     return
   }
+  muteNativeTooltip(anchor)
   const tooltip = ensureTooltip()
   tooltip.textEl.textContent = text
   tooltip.textEl.classList.toggle('status', status)
@@ -215,6 +233,7 @@ export default defineContentScript({
     const clearActive = () => {
       clearHoverTimer()
       abortActive()
+      restoreNativeTooltip(activeAnchor)
       activeAnchor = null
       activeUrl = ''
       hideTooltip()
