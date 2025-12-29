@@ -898,18 +898,34 @@ button:hover {
 }
 
 .daemonStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.3;
 }
 
 .daemonStatus[data-state="ok"] {
-  color: color-mix(in srgb, var(--text) 70%, var(--muted));
+  color: color-mix(in srgb, #16a34a 80%, var(--text));
 }
 
 .daemonStatus[data-state="warn"] {
-  color: color-mix(in srgb, #b45309 80%, var(--text));
+  color: color-mix(in srgb, #b45309 85%, var(--text));
 }
 
 .daemonStatus[data-state="error"] {
-  color: color-mix(in srgb, #dc2626 85%, var(--text));
+  color: color-mix(in srgb, #dc2626 90%, var(--text));
+}
+
+.daemonStatus__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
 }

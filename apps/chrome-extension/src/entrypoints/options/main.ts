@@ -76,7 +76,12 @@ const resolveExtensionVersion = () => {
 }
 
 const setDaemonStatus = (text: string, state?: 'ok' | 'warn' | 'error') => {
-  daemonStatusEl.textContent = text
+  const textEl = daemonStatusEl.querySelector<HTMLElement>('.daemonStatus__text')
+  if (textEl) {
+    textEl.textContent = text
+  } else {
+    daemonStatusEl.textContent = text
+  }
   if (state) {
     daemonStatusEl.dataset.state = state
   } else {
@@ -88,7 +93,7 @@ let daemonCheckId = 0
 async function checkDaemonStatus(token: string) {
   const trimmedToken = token.trim()
   if (!trimmedToken) {
-    setDaemonStatus('Add token to verify daemon', 'warn')
+    setDaemonStatus('Add token to verify daemon connection', 'warn')
     return
   }
 
@@ -103,7 +108,10 @@ async function checkDaemonStatus(token: string) {
     window.clearTimeout(timeout)
     if (checkId !== daemonCheckId) return
     if (!res.ok) {
-      setDaemonStatus(`Daemon error (${res.status} ${res.statusText})`, 'error')
+      setDaemonStatus(
+        `Daemon error (${res.status} ${res.statusText}) — run \`summarize daemon status\``,
+        'error'
+      )
       return
     }
     const json = (await res.json()) as { version?: unknown }
@@ -119,12 +127,18 @@ async function checkDaemonStatus(token: string) {
         })
         if (checkId !== daemonCheckId) return
         if (!ping.ok) {
-          setDaemonStatus(`Daemon ${versionNote} (token mismatch)`, 'warn')
+          setDaemonStatus(
+            `Daemon ${versionNote} (token mismatch) — update token in side panel and Save`,
+            'warn'
+          )
           return
         }
       } catch {
         if (checkId !== daemonCheckId) return
-        setDaemonStatus(`Daemon ${versionNote} (auth failed)`, 'warn')
+        setDaemonStatus(
+          `Daemon ${versionNote} (auth failed) — update token in side panel and Save`,
+          'warn'
+        )
         return
       }
     } else {
@@ -141,7 +155,10 @@ async function checkDaemonStatus(token: string) {
   } catch {
     window.clearTimeout(timeout)
     if (checkId !== daemonCheckId) return
-    setDaemonStatus('Daemon unreachable', 'error')
+    setDaemonStatus(
+      'Daemon unreachable — run `summarize daemon status` and check ~/.summarize/logs/daemon.err.log',
+      'error'
+    )
   }
 }
 

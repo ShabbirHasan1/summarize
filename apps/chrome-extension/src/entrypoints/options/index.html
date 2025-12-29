@@ -19,7 +19,6 @@
             <span>Token</span>
             <input id="token" type="text" placeholder="(generated in side panel)" />
           </label>
-          <div id="daemonStatus" class="daemonStatus">Checking daemon…</div>
           <div id="autoToggle" class="row"></div>
         </section>
 
@@ -126,6 +125,12 @@
           <div class="hint">Values set here override daemon config. Leave blank to use config.</div>
           <div id="advancedFields" class="advancedFields" hidden>
             <div class="advancedGrid">
+              <div class="combo span-2">
+                <div id="daemonStatus" class="daemonStatus" data-state="warn">
+                  <span class="daemonStatus__dot" aria-hidden="true"></span>
+                  <span class="daemonStatus__text">Checking daemon…</span>
+                </div>
+              </div>
               <div class="combo span-2">
                 <div id="chatToggle"></div>
                 <span class="subtitle">Enable Chat mode in the side panel (default on).</span>
