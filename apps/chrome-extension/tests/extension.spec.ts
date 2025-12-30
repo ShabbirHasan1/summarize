@@ -347,6 +347,8 @@ test('sidepanel refresh free models from advanced settings', async () => {
     )
 
     const page = await openExtensionPage(harness, 'sidepanel.html', '#title')
+    await page.click('#drawerToggle')
+    await expect(page.locator('#drawer')).toBeVisible()
     await sendBgMessage(harness, {
       type: 'ui:state',
       state: buildUiState({
