@@ -796,6 +796,7 @@ test('sidepanel chat queue removes items before sending', async () => {
     await activateTabByUrl(harness, 'https://example.com')
     await waitForActiveTabUrl(harness, 'https://example.com')
     await sendChat('First question')
+    await expect.poll(() => chatRequestCount).toBe(1)
     await sendChat('Second question')
     await sendChat('Third question')
 
@@ -1130,6 +1131,20 @@ test('options keeps custom model selected while presets refresh', async () => {
           options: [{ id: 'auto', label: '' }],
           providers: { openrouter: true },
         }),
+      })
+    })
+    await harness.context.route('http://127.0.0.1:8787/health', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ok: true, version: '0.0.0' }),
+      })
+    })
+    await harness.context.route('http://127.0.0.1:8787/v1/ping', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ok: true }),
       })
     })
 
