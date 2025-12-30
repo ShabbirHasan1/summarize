@@ -17,7 +17,7 @@ import {
   fetchTranscriptFromCaptionTracks,
   fetchYoutubeDurationSecondsViaPlayer,
 } from './youtube/captions.js'
-import { fetchTranscriptWithYtDlp } from './youtube/yt-dlp.js'
+import { fetchDurationSecondsWithYtDlp, fetchTranscriptWithYtDlp } from './youtube/yt-dlp.js'
 
 const YOUTUBE_URL_PATTERN = /youtube\.com|youtu\.be/i
 
@@ -110,6 +110,12 @@ export const fetchTranscript = async (
     durationSeconds = await fetchYoutubeDurationSecondsViaPlayer(options.fetch, {
       html,
       videoId: effectiveVideoId,
+    })
+  }
+  if (!durationSeconds && options.ytDlpPath) {
+    durationSeconds = await fetchDurationSecondsWithYtDlp({
+      ytDlpPath: options.ytDlpPath,
+      url,
     })
   }
   const durationMetadata =

@@ -32,6 +32,11 @@ type YtDlpRequest = {
   extraArgs?: string[]
 }
 
+type YtDlpDurationRequest = {
+  ytDlpPath: string | null
+  url: string
+}
+
 export const fetchTranscriptWithYtDlp = async ({
   ytDlpPath,
   openaiApiKey,
@@ -159,6 +164,64 @@ export const fetchTranscriptWithYtDlp = async ({
   } finally {
     await fs.unlink(outputFile).catch(() => {})
   }
+}
+
+export const fetchDurationSecondsWithYtDlp = async ({
+  ytDlpPath,
+  url,
+}: YtDlpDurationRequest): Promise<number | null> => {
+  if (!ytDlpPath) return null
+
+  return new Promise((resolve) => {
+    const args = ['--skip-download', '--dump-json', '--no-playlist', '--no-warnings', url]
+    const proc = spawn(ytDlpPath, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+
+    const timeout = setTimeout(() => {
+      proc.kill('SIGKILL')
+      resolve(null)
+    }, 30_000)
+
+    proc.stdout.on('data', (chunk) => {
+      stdout += chunk.toString()
+    })
+
+    proc.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+      if (stderr.length > MAX_STDERR_BYTES) {
+        stderr = stderr.slice(-MAX_STDERR_BYTES)
+      }
+    })
+
+    proc.on('close', (code) => {
+      clearTimeout(timeout)
+      if (code !== 0) {
+        resolve(null)
+        return
+      }
+      const jsonLine = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.startsWith('{'))
+      if (!jsonLine) {
+        resolve(null)
+        return
+      }
+      try {
+        const parsed = JSON.parse(jsonLine) as { duration?: unknown }
+        const duration = typeof parsed.duration === 'number' ? parsed.duration : Number.NaN
+        resolve(Number.isFinite(duration) && duration > 0 ? duration : null)
+      } catch {
+        resolve(null)
+      }
+    })
+
+    proc.on('error', () => {
+      clearTimeout(timeout)
+      resolve(null)
+    })
+  })
 }
 
 async function downloadAudio(

@@ -14,6 +14,7 @@ const apify = vi.hoisted(() => ({
 }))
 const ytdlp = vi.hoisted(() => ({
   fetchTranscriptWithYtDlp: vi.fn(),
+  fetchDurationSecondsWithYtDlp: vi.fn(),
 }))
 
 vi.mock('../packages/core/src/content/transcript/providers/youtube/api.js', () => api)
@@ -47,6 +48,7 @@ describe('YouTube transcript provider module', () => {
       error: null,
       notes: [],
     })
+    ytdlp.fetchDurationSecondsWithYtDlp.mockResolvedValue(null)
   })
 
   it('returns null when HTML is missing or video id cannot be resolved', async () => {
@@ -255,6 +257,33 @@ describe('YouTube transcript provider module', () => {
       durationSeconds: 2220,
     })
     expect(captions.fetchYoutubeDurationSecondsViaPlayer).toHaveBeenCalled()
+  })
+
+  it('uses yt-dlp duration when player duration is unavailable', async () => {
+    captions.fetchTranscriptFromCaptionTracks.mockResolvedValue('Creator caption')
+    captions.extractYoutubeDurationSeconds.mockReturnValue(null)
+    captions.fetchYoutubeDurationSecondsViaPlayer.mockResolvedValue(null)
+    ytdlp.fetchDurationSecondsWithYtDlp.mockResolvedValue(3300)
+
+    const result = await fetchTranscript(
+      {
+        url: 'https://www.youtube.com/watch?v=abcdefghijk',
+        html: '<html></html>',
+        resourceKey: null,
+      },
+      {
+        ...baseOptions,
+        youtubeTranscriptMode: 'no-auto',
+        ytDlpPath: '/usr/bin/yt-dlp',
+      }
+    )
+
+    expect(result.metadata).toEqual({
+      provider: 'captionTracks',
+      manualOnly: true,
+      durationSeconds: 3300,
+    })
+    expect(ytdlp.fetchDurationSecondsWithYtDlp).toHaveBeenCalled()
   })
 
   it('falls back to yt-dlp in no-auto mode when no creator captions found', async () => {
