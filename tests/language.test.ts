@@ -63,7 +63,7 @@ describe('output language', () => {
   })
 
   it('formats prompt instruction', () => {
-    expect(formatOutputLanguageInstruction({ kind: 'auto' })).toMatch(/primary language/i)
+    expect(formatOutputLanguageInstruction({ kind: 'auto' })).toMatch(/dominant source language/i)
     expect(formatOutputLanguageInstruction({ kind: 'fixed', tag: 'en', label: 'English' })).toBe(
       'Write the answer in English.'
     )
