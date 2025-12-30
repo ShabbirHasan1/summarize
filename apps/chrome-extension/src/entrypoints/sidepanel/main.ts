@@ -832,13 +832,36 @@ function setModelValue(value: string) {
   modelCustomEl.value = next
 }
 
+function captureModelSelection() {
+  return {
+    presetValue: modelPresetEl.value,
+    customValue: modelCustomEl.value,
+  }
+}
+
+function restoreModelSelection(selection: { presetValue: string; customValue: string }) {
+  if (selection.presetValue === 'custom') {
+    modelPresetEl.value = 'custom'
+    modelCustomEl.hidden = false
+    modelCustomEl.value = selection.customValue
+    return
+  }
+  const optionValues = new Set(Array.from(modelPresetEl.options).map((o) => o.value))
+  if (optionValues.has(selection.presetValue) && selection.presetValue !== 'custom') {
+    modelPresetEl.value = selection.presetValue
+    modelCustomEl.hidden = true
+    return
+  }
+  setModelValue(selection.presetValue)
+}
+
 async function refreshModelPresets(token: string) {
-  const previousModel = readCurrentModelValue()
+  const selection = captureModelSelection()
   const trimmed = token.trim()
   if (!trimmed) {
     setDefaultModelPresets()
     setModelPlaceholderFromDiscovery({})
-    setModelValue(previousModel)
+    restoreModelSelection(selection)
     return
   }
   try {
@@ -847,7 +870,7 @@ async function refreshModelPresets(token: string) {
     })
     if (!res.ok) {
       setDefaultModelPresets()
-      setModelValue(previousModel)
+      restoreModelSelection(selection)
       return
     }
     const json = (await res.json()) as unknown
@@ -876,7 +899,7 @@ async function refreshModelPresets(token: string) {
 
     if (options.length === 0) {
       setDefaultModelPresets()
-      setModelValue(previousModel)
+      restoreModelSelection(selection)
       return
     }
 
@@ -890,7 +913,7 @@ async function refreshModelPresets(token: string) {
       el.textContent = opt.label ? `${opt.id} — ${opt.label}` : opt.id
       modelPresetEl.append(el)
     }
-    setModelValue(previousModel)
+    restoreModelSelection(selection)
   } catch {
     // ignore
   }
