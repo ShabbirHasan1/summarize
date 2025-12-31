@@ -880,8 +880,8 @@ button.ghost:hover {
   transform: rotate(225deg);
 }
 
-.drawerAdvanced:not([open]) > .drawerAdvancedBody {
-  display: grid;
+details.drawerAdvanced:not([open]) > .drawerAdvancedBody {
+  display: grid !important;
 }
 
 .drawerAdvancedBody {
