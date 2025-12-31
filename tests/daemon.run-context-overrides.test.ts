@@ -141,6 +141,25 @@ describe('daemon/flow-context (overrides)', () => {
     expect(ctx.flags.maxOutputTokensArg).toBe(512)
   })
 
+  it('defaults markdownMode to readability when format=markdown', () => {
+    const home = makeTempHome()
+    const ctx = createDaemonUrlFlowContext({
+      env: { HOME: home },
+      fetchImpl: fetch,
+      cache: makeCacheState(),
+      modelOverride: null,
+      promptOverride: null,
+      lengthRaw: 'xl',
+      languageRaw: 'auto',
+      maxExtractCharacters: null,
+      format: 'markdown',
+      runStartedAtMs: Date.now(),
+      stdoutSink: { writeChunk: () => {} },
+    })
+
+    expect(ctx.flags.markdownMode).toBe('readability')
+  })
+
   it('adjusts desired output tokens based on length', () => {
     const home = makeTempHome()
     const shortCtx = createDaemonUrlFlowContext({

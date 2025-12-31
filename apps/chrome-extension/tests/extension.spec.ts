@@ -816,6 +816,47 @@ test('sidepanel shows an error when agent request fails', async () => {
   }
 })
 
+test('sidepanel shows daemon upgrade hint when /v1/agent is missing', async () => {
+  const harness = await launchExtension()
+
+  try {
+    await seedSettings(harness, { token: 'test-token', autoSummarize: false, chatEnabled: true })
+    const contentPage = await harness.context.newPage()
+    await contentPage.goto('https://example.com', { waitUntil: 'domcontentloaded' })
+    await contentPage.evaluate(() => {
+      document.body.innerHTML = `<article><p>Agent 404 test.</p></article>`
+    })
+    await contentPage.bringToFront()
+    await activateTabByUrl(harness, 'https://example.com')
+    await waitForActiveTabUrl(harness, 'https://example.com')
+    await injectContentScript(harness, 'content-scripts/extract.js', 'https://example.com')
+
+    await harness.context.route('http://127.0.0.1:8787/v1/agent', async (route) => {
+      await route.fulfill({
+        status: 404,
+        headers: { 'content-type': 'text/plain' },
+        body: 'Not Found',
+      })
+    })
+
+    const page = await openExtensionPage(harness, 'sidepanel.html', '#title')
+    await page.evaluate((value) => {
+      const input = document.getElementById('chatInput') as HTMLTextAreaElement | null
+      const send = document.getElementById('chatSend') as HTMLButtonElement | null
+      if (!input || !send) return
+      input.value = value
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      send.click()
+    }, 'Trigger agent 404')
+
+    await expect(page.locator('#error')).toBeVisible()
+    await expect(page.locator('#errorMessage')).toContainText('Daemon does not support /v1/agent')
+    assertNoErrors(harness)
+  } finally {
+    await closeExtension(harness.context, harness.userDataDir)
+  }
+})
+
 test('sidepanel chat queue sends next message after stream completes', async () => {
   const harness = await launchExtension()
 
