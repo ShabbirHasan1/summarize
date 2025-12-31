@@ -137,8 +137,19 @@ async function sendBgMessage(harness: ExtensionHarness, message: object) {
 }
 
 async function sendPanelMessage(page: Page, message: object) {
+  await page.waitForFunction(
+    () =>
+      typeof (window as { __summarizePanelPort?: { postMessage?: unknown } })
+        .__summarizePanelPort?.postMessage === 'function',
+    null,
+    { timeout: 5_000 }
+  )
   await page.evaluate((payload) => {
-    chrome.runtime.sendMessage(payload)
+    const port = (window as {
+      __summarizePanelPort?: { postMessage: (payload: object) => void }
+    }).__summarizePanelPort
+    if (!port) throw new Error('Missing panel port')
+    port.postMessage(payload)
   }, message)
 }
 

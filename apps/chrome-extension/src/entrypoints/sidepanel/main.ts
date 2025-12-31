@@ -43,6 +43,46 @@ type BgToPanel =
   | { type: 'run:error'; message: string }
   | { type: 'chat:start'; payload: ChatStartPayload }
 
+let panelPort: chrome.runtime.Port | null = null
+let panelPortConnecting: Promise<chrome.runtime.Port | null> | null = null
+let panelWindowId: number | null = null
+
+function getCurrentWindowId(): Promise<number | null> {
+  return new Promise((resolve) => {
+    chrome.windows.getCurrent((window) => {
+      resolve(typeof window?.id === 'number' ? window.id : null)
+    })
+  })
+}
+
+async function ensurePanelPort(): Promise<chrome.runtime.Port | null> {
+  if (panelPort) return panelPort
+  if (panelPortConnecting) return panelPortConnecting
+  panelPortConnecting = (async () => {
+    const windowId = panelWindowId ?? (await getCurrentWindowId())
+    panelWindowId = windowId
+    if (typeof windowId !== 'number') return null
+    const port = chrome.runtime.connect({ name: `sidepanel:${windowId}` })
+    panelPort = port
+    ;(window as unknown as { __summarizePanelPort?: chrome.runtime.Port }).__summarizePanelPort =
+      port
+    port.onMessage.addListener((msg) => {
+      handleBgMessage(msg as BgToPanel)
+    })
+    port.onDisconnect.addListener(() => {
+      if (panelPort !== port) return
+      panelPort = null
+      panelPortConnecting = null
+      ;(window as unknown as { __summarizePanelPort?: chrome.runtime.Port }).__summarizePanelPort =
+        undefined
+    })
+    return port
+  })()
+  const resolved = await panelPortConnecting
+  if (!resolved) panelPortConnecting = null
+  return resolved
+}
+
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id)
   if (!el) throw new Error(`Missing #${id}`)
@@ -1592,15 +1632,19 @@ function scheduleAutoKick() {
   }, 350)
 }
 
-function send(message: PanelToBg) {
+async function send(message: PanelToBg) {
   if (message.type === 'panel:summarize') {
     lastAction = 'summarize'
   } else if (message.type === 'panel:chat') {
     lastAction = 'chat'
   }
-  void chrome.runtime.sendMessage(message).catch(() => {
+  const port = await ensurePanelPort()
+  if (!port) return
+  try {
+    port.postMessage(message)
+  } catch {
     // ignore (panel/background race while reloading)
-  })
+  }
 }
 
 function sendSummarize(opts?: { refresh?: boolean }) {
@@ -1891,6 +1935,7 @@ modelRefreshBtn.addEventListener('click', () => {
 })
 
 void (async () => {
+  await ensurePanelPort()
   const s = await loadSettings()
   setCurrentFontSize(s.fontSize)
   setCurrentLineHeight(s.lineHeight)
@@ -1932,9 +1977,6 @@ void (async () => {
   applyTypography(s.fontFamily, s.fontSize, s.lineHeight)
   applyTheme({ scheme: s.colorScheme, mode: s.colorMode })
   toggleDrawer(false, { animate: false })
-  chrome.runtime.onMessage.addListener((msg: BgToPanel) => {
-    handleBgMessage(msg)
-  })
   send({ type: 'panel:ready' })
   scheduleAutoKick()
 })()

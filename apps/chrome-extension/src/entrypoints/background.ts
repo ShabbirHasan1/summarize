@@ -89,6 +89,18 @@ type ExtractResponse =
     }
   | { ok: false; error: string }
 
+type PanelSession = {
+  windowId: number
+  port: chrome.runtime.Port
+  panelOpen: boolean
+  panelLastPingAt: number
+  lastSummarizedUrl: string | null
+  inflightUrl: string | null
+  runController: AbortController | null
+  lastNavAt: number
+  daemonRecovery: ReturnType<typeof createDaemonRecovery>
+}
+
 const optionsWindowSize = { width: 940, height: 680 }
 const optionsWindowMin = { width: 820, height: 560 }
 const optionsWindowMargin = 20
@@ -133,8 +145,10 @@ function canSummarizeUrl(url: string | undefined): url is string {
   return true
 }
 
-async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+async function getActiveTab(windowId?: number): Promise<chrome.tabs.Tab | null> {
+  const [tab] = await chrome.tabs.query(
+    typeof windowId === 'number' ? { active: true, windowId } : { active: true, currentWindow: true }
+  )
   return tab ?? null
 }
 
@@ -266,14 +280,8 @@ async function extractFromTab(
 }
 
 export default defineBackground(() => {
-  let panelOpen = false
-  let panelLastPingAt = 0
-  let lastSummarizedUrl: string | null = null
-  let inflightUrl: string | null = null
-  let runController: AbortController | null = null
-  let lastNavAt = 0
+  const panelSessions = new Map<number, PanelSession>()
   const lastMediaProbeByTab = new Map<number, string>()
-  const daemonRecovery = createDaemonRecovery()
   type CachedExtract = {
     url: string
     title: string | null
@@ -306,10 +314,47 @@ export default defineBackground(() => {
     { requestId: string; controller: AbortController }
   >()
 
-  const isPanelOpen = () => {
-    if (!panelOpen) return false
-    if (panelLastPingAt === 0) return true
-    return Date.now() - panelLastPingAt < 45_000
+  const isPanelOpen = (session: PanelSession) => {
+    if (!session.panelOpen) return false
+    if (session.panelLastPingAt === 0) return true
+    return Date.now() - session.panelLastPingAt < 45_000
+  }
+
+  const getPanelSession = (windowId: number) => panelSessions.get(windowId) ?? null
+
+  const registerPanelSession = (windowId: number, port: chrome.runtime.Port) => {
+    const existing = panelSessions.get(windowId)
+    if (existing && existing.port !== port) {
+      existing.runController?.abort()
+    }
+    const session: PanelSession =
+      existing ?? {
+        windowId,
+        port,
+        panelOpen: false,
+        panelLastPingAt: 0,
+        lastSummarizedUrl: null,
+        inflightUrl: null,
+        runController: null,
+        lastNavAt: 0,
+        daemonRecovery: createDaemonRecovery(),
+      }
+    session.port = port
+    panelSessions.set(windowId, session)
+    return session
+  }
+
+  const clearCachedExtractsForWindow = async (windowId: number) => {
+    try {
+      const tabs = await chrome.tabs.query({ windowId })
+      for (const tab of tabs) {
+        if (!tab.id) continue
+        cachedExtracts.delete(tab.id)
+        lastMediaProbeByTab.delete(tab.id)
+      }
+    } catch {
+      // ignore
+    }
   }
 
   const getCachedExtract = (tabId: number, url?: string | null) => {
@@ -323,6 +368,7 @@ export default defineBackground(() => {
   }
 
   const ensureChatExtract = async (
+    session: PanelSession,
     tab: chrome.tabs.Tab,
     settings: Awaited<ReturnType<typeof loadSettings>>
   ) => {
@@ -369,7 +415,7 @@ export default defineBackground(() => {
       }
     }
 
-    sendStatus('Extracting page content…')
+    sendStatus(session, 'Extracting page content…')
     const res = await fetch('http://127.0.0.1:8787/v1/summarize', {
       method: 'POST',
       headers: {
@@ -448,15 +494,16 @@ export default defineBackground(() => {
     return next
   }
 
-  const send = async (msg: BgToPanel) => {
-    if (!isPanelOpen()) return
+  const send = (session: PanelSession, msg: BgToPanel) => {
+    if (!isPanelOpen(session)) return
     try {
-      await chrome.runtime.sendMessage(msg)
+      session.port.postMessage(msg)
     } catch {
       // ignore (panel closed / reloading)
     }
   }
-  const sendStatus = (status: string) => void send({ type: 'ui:status', status })
+  const sendStatus = (session: PanelSession, status: string) =>
+    void send(session, { type: 'ui:status', status })
 
   const sendHover = async (tabId: number, msg: BgToHover) => {
     try {
@@ -466,28 +513,32 @@ export default defineBackground(() => {
     }
   }
 
-  const emitState = async (status: string, opts?: { checkRecovery?: boolean }) => {
+  const emitState = async (
+    session: PanelSession,
+    status: string,
+    opts?: { checkRecovery?: boolean }
+  ) => {
     const settings = await loadSettings()
-    const tab = await getActiveTab()
+    const tab = await getActiveTab(session.windowId)
     const health = await daemonHealth()
     const authed = settings.token.trim() ? await daemonPing(settings.token.trim()) : { ok: false }
     const daemonReady = health.ok && authed.ok
-    const pendingUrl = daemonRecovery.getPendingUrl()
+    const pendingUrl = session.daemonRecovery.getPendingUrl()
     const currentUrlMatches = Boolean(pendingUrl && tab?.url && urlsMatch(tab.url, pendingUrl))
-    const isIdle = !runController && !inflightUrl
+    const isIdle = !session.runController && !session.inflightUrl
     const cached = tab?.id ? getCachedExtract(tab.id, tab.url ?? null) : null
     let shouldRecover = false
     if (opts?.checkRecovery) {
-      shouldRecover = daemonRecovery.maybeRecover({
+      shouldRecover = session.daemonRecovery.maybeRecover({
         isReady: daemonReady,
         currentUrlMatches,
         isIdle,
       })
     } else {
-      daemonRecovery.updateStatus(daemonReady)
+      session.daemonRecovery.updateStatus(daemonReady)
     }
     const state: UiState = {
-      panelOpen: isPanelOpen(),
+      panelOpen: isPanelOpen(session),
       daemon: { ok: health.ok, authed: authed.ok, error: health.error ?? authed.error },
       tab: { id: tab?.id ?? null, url: tab?.url ?? null, title: tab?.title ?? null },
       media: cached?.media ?? null,
@@ -508,19 +559,19 @@ export default defineBackground(() => {
       },
       status,
     }
-    void send({ type: 'ui:state', state })
+    void send(session, { type: 'ui:state', state })
 
     if (shouldRecover) {
-      void summarizeActiveTab('daemon-recovered')
+      void summarizeActiveTab(session, 'daemon-recovered')
       return
     }
 
     if (pendingUrl && tab?.url && !currentUrlMatches) {
-      daemonRecovery.clearPending()
+      session.daemonRecovery.clearPending()
     }
 
     if (tab?.id && tab.url && canSummarizeUrl(tab.url)) {
-      void primeMediaHint({
+      void primeMediaHint(session, {
         tabId: tab.id,
         url: tab.url,
         title: tab.title ?? null,
@@ -528,15 +579,18 @@ export default defineBackground(() => {
     }
   }
 
-  const primeMediaHint = async ({
-    tabId,
-    url,
-    title,
-  }: {
+  const primeMediaHint = async (
+    session: PanelSession,
+    {
+      tabId,
+      url,
+      title,
+    }: {
     tabId: number
     url: string
     title: string | null
-  }) => {
+    }
+  ) => {
     const lastProbeUrl = lastMediaProbeByTab.get(tabId)
     if (lastProbeUrl && urlsMatch(lastProbeUrl, url)) return
     const existing = getCachedExtract(tabId, url)
@@ -571,20 +625,21 @@ export default defineBackground(() => {
       diagnostics: null,
     })
 
-    void emitState('')
+    void emitState(session, '')
   }
 
   const summarizeActiveTab = async (
+    session: PanelSession,
     reason: string,
     opts?: { refresh?: boolean; inputMode?: 'page' | 'video' }
   ) => {
-    if (!isPanelOpen()) return
+    if (!isPanelOpen(session)) return
 
     const settings = await loadSettings()
     const isManual = reason === 'manual' || reason === 'refresh' || reason === 'length-change'
     if (!isManual && !settings.autoSummarize) return
     if (!settings.token.trim()) {
-      await emitState('Setup required (missing token)')
+      await emitState(session, 'Setup required (missing token)')
       return
     }
 
@@ -592,14 +647,14 @@ export default defineBackground(() => {
       await new Promise((resolve) => setTimeout(resolve, 220))
     }
 
-    const tab = await getActiveTab()
+    const tab = await getActiveTab(session.windowId)
     if (!tab?.id || !canSummarizeUrl(tab.url)) return
 
-    runController?.abort()
+    session.runController?.abort()
     const controller = new AbortController()
-    runController = controller
+    session.runController = controller
 
-    sendStatus(`Extracting… (${reason})`)
+    sendStatus(session, `Extracting… (${reason})`)
     const extractedAttempt = await extractFromTab(tab.id, settings.maxChars)
     let extracted = extractedAttempt.ok
       ? extractedAttempt.data
@@ -637,11 +692,12 @@ export default defineBackground(() => {
 
     if (
       settings.autoSummarize &&
-      ((lastSummarizedUrl && urlsMatch(lastSummarizedUrl, resolvedExtracted.url)) ||
-        (inflightUrl && urlsMatch(inflightUrl, resolvedExtracted.url))) &&
+      ((session.lastSummarizedUrl &&
+        urlsMatch(session.lastSummarizedUrl, resolvedExtracted.url)) ||
+        (session.inflightUrl && urlsMatch(session.inflightUrl, resolvedExtracted.url))) &&
       !isManual
     ) {
-      sendStatus('')
+      sendStatus(session, '')
       return
     }
 
@@ -668,8 +724,8 @@ export default defineBackground(() => {
       diagnostics: null,
     })
 
-    sendStatus('Connecting…')
-    inflightUrl = resolvedPayload.url
+    sendStatus(session, 'Connecting…')
+    session.inflightUrl = resolvedPayload.url
     let id: string
     try {
       const body = buildSummarizeRequestBody({
@@ -695,16 +751,16 @@ export default defineBackground(() => {
     } catch (err) {
       if (controller.signal.aborted) return
       const message = friendlyFetchError(err, 'Daemon request failed')
-      void send({ type: 'run:error', message })
-      sendStatus(`Error: ${message}`)
-      inflightUrl = null
+      void send(session, { type: 'run:error', message })
+      sendStatus(session, `Error: ${message}`)
+      session.inflightUrl = null
       if (!isManual && isDaemonUnreachableError(err)) {
-        daemonRecovery.recordFailure(resolvedPayload.url)
+        session.daemonRecovery.recordFailure(resolvedPayload.url)
       }
       return
     }
 
-    void send({
+    void send(session, {
       type: 'run:start',
       run: { id, url: resolvedPayload.url, title: resolvedTitle, model: settings.model, reason },
     })
@@ -859,183 +915,206 @@ export default defineBackground(() => {
     }
   }
 
+  const handlePanelMessage = (session: PanelSession, raw: PanelToBg) => {
+    if (!raw || typeof raw !== 'object' || typeof (raw as { type?: unknown }).type !== 'string') {
+      return
+    }
+    const type = raw.type
+    if (type !== 'panel:closed') {
+      session.panelOpen = true
+    }
+    if (type === 'panel:ping') session.panelLastPingAt = Date.now()
+
+    switch (type) {
+      case 'panel:ready':
+        session.panelOpen = true
+        session.panelLastPingAt = Date.now()
+        session.lastSummarizedUrl = null
+        session.inflightUrl = null
+        session.runController?.abort()
+        session.runController = null
+        session.daemonRecovery.clearPending()
+        void emitState(session, '')
+        void summarizeActiveTab(session, 'panel-open')
+        break
+      case 'panel:closed':
+        session.panelOpen = false
+        session.panelLastPingAt = 0
+        session.runController?.abort()
+        session.runController = null
+        session.lastSummarizedUrl = null
+        session.inflightUrl = null
+        session.daemonRecovery.clearPending()
+        void clearCachedExtractsForWindow(session.windowId)
+        break
+      case 'panel:summarize':
+        void summarizeActiveTab(
+          session,
+          (raw as { refresh?: boolean }).refresh ? 'refresh' : 'manual',
+          {
+            refresh: Boolean((raw as { refresh?: boolean }).refresh),
+            inputMode: (raw as { inputMode?: 'page' | 'video' }).inputMode,
+          }
+        )
+        break
+      case 'panel:chat':
+        void (async () => {
+          const settings = await loadSettings()
+          if (!settings.chatEnabled) {
+            void send(session, { type: 'run:error', message: 'Chat is disabled in settings' })
+            return
+          }
+          if (!settings.token.trim()) {
+            void send(session, { type: 'run:error', message: 'Setup required (missing token)' })
+            return
+          }
+
+          const tab = await getActiveTab(session.windowId)
+          if (!tab?.id || !canSummarizeUrl(tab.url)) {
+            void send(session, { type: 'run:error', message: 'Cannot chat on this page' })
+            return
+          }
+
+          let cachedExtract: CachedExtract
+          try {
+            cachedExtract = await ensureChatExtract(session, tab, settings)
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            void send(session, { type: 'run:error', message })
+            sendStatus(session, `Error: ${message}`)
+            return
+          }
+
+          const chatPayload = raw as {
+            messages: Array<{ role: 'user' | 'assistant'; content: string }>
+            summary?: string | null
+          }
+          const chatMessages = chatPayload.messages
+          const summaryText =
+            typeof chatPayload.summary === 'string' ? chatPayload.summary.trim() : ''
+          const pageContent = buildChatPageContent({
+            transcript: cachedExtract.text,
+            summary: summaryText,
+            summaryCap: settings.maxChars,
+            metadata: {
+              url: cachedExtract.url,
+              title: cachedExtract.title,
+              source: cachedExtract.source,
+              extractionStrategy:
+                cachedExtract.source === 'page'
+                  ? 'readability (content script)'
+                  : (cachedExtract.diagnostics?.strategy ?? null),
+              markdownProvider: cachedExtract.diagnostics?.markdown?.used
+                ? (cachedExtract.diagnostics?.markdown?.provider ?? 'unknown')
+                : null,
+              firecrawlUsed: cachedExtract.diagnostics?.firecrawl?.used ?? null,
+              transcriptSource: cachedExtract.transcriptSource,
+              transcriptionProvider: cachedExtract.transcriptionProvider,
+              transcriptCache: cachedExtract.diagnostics?.transcript?.cacheStatus ?? null,
+              attemptedTranscriptProviders:
+                cachedExtract.diagnostics?.transcript?.attemptedProviders ?? null,
+              mediaDurationSeconds: cachedExtract.mediaDurationSeconds,
+              totalCharacters: cachedExtract.totalCharacters,
+              wordCount: cachedExtract.wordCount,
+              transcriptCharacters: cachedExtract.transcriptCharacters,
+              transcriptWordCount: cachedExtract.transcriptWordCount,
+              transcriptLines: cachedExtract.transcriptLines,
+              truncated: cachedExtract.truncated,
+            },
+          })
+
+          sendStatus(session, 'Sending to AI…')
+
+          try {
+            const res = await fetch('http://127.0.0.1:8787/v1/chat', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${settings.token.trim()}`,
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                url: cachedExtract.url,
+                title: cachedExtract.title,
+                pageContent,
+                messages: chatMessages,
+                model: settings.model,
+              }),
+            })
+            const json = (await res.json()) as { ok: boolean; id?: string; error?: string }
+            if (!res.ok || !json.ok || !json.id) {
+              throw new Error(json.error || `${res.status} ${res.statusText}`)
+            }
+
+            void send(session, {
+              type: 'chat:start',
+              payload: { id: json.id, url: cachedExtract.url },
+            })
+            sendStatus(session, '')
+          } catch (err) {
+            const message = friendlyFetchError(err, 'Chat request failed')
+            void send(session, { type: 'run:error', message })
+            sendStatus(session, `Error: ${message}`)
+          }
+        })()
+        break
+      case 'panel:ping':
+        void emitState(session, '', { checkRecovery: true })
+        break
+      case 'panel:rememberUrl':
+        session.lastSummarizedUrl = (raw as { url: string }).url
+        session.inflightUrl = null
+        break
+      case 'panel:setAuto':
+        void (async () => {
+          await patchSettings({ autoSummarize: (raw as { value: boolean }).value })
+          void emitState(session, '')
+          if ((raw as { value: boolean }).value) void summarizeActiveTab(session, 'auto-enabled')
+        })()
+        break
+      case 'panel:setLength':
+        void (async () => {
+          const next = (raw as { value: string }).value
+          const current = await loadSettings()
+          if (current.length === next) return
+          await patchSettings({ length: next })
+          void emitState(session, '')
+          void summarizeActiveTab(session, 'length-change')
+        })()
+        break
+      case 'panel:openOptions':
+        void openOptionsWindow()
+        break
+    }
+  }
+
+  chrome.runtime.onConnect.addListener((port) => {
+    if (!port.name.startsWith('sidepanel:')) return
+    const windowIdRaw = port.name.split(':')[1] ?? ''
+    const windowId = Number.parseInt(windowIdRaw, 10)
+    if (!Number.isFinite(windowId)) return
+    const session = registerPanelSession(windowId, port)
+    port.onMessage.addListener((msg) => handlePanelMessage(session, msg as PanelToBg))
+    port.onDisconnect.addListener(() => {
+      if (session.port !== port) return
+      session.runController?.abort()
+      session.runController = null
+      session.panelOpen = false
+      session.panelLastPingAt = 0
+      session.lastSummarizedUrl = null
+      session.inflightUrl = null
+      session.daemonRecovery.clearPending()
+      panelSessions.delete(windowId)
+      void clearCachedExtractsForWindow(windowId)
+    })
+  })
+
   chrome.runtime.onMessage.addListener(
-    (raw: PanelToBg | HoverToBg, sender, sendResponse): boolean | undefined => {
+    (raw: HoverToBg, sender, sendResponse): boolean | undefined => {
       if (!raw || typeof raw !== 'object' || typeof (raw as { type?: unknown }).type !== 'string') {
         return
       }
 
       const type = (raw as { type: string }).type
-      if (type.startsWith('panel:')) {
-        const msg = raw as PanelToBg
-        panelOpen = true
-        if (type === 'panel:ping') panelLastPingAt = Date.now()
-
-        switch (type) {
-          case 'panel:ready':
-            panelLastPingAt = Date.now()
-            lastSummarizedUrl = null
-            inflightUrl = null
-            runController?.abort()
-            runController = null
-            daemonRecovery.clearPending()
-            void emitState('')
-            void summarizeActiveTab('panel-open')
-            break
-          case 'panel:closed':
-            panelOpen = false
-            panelLastPingAt = 0
-            runController?.abort()
-            runController = null
-            lastSummarizedUrl = null
-            inflightUrl = null
-            cachedExtracts.clear()
-            daemonRecovery.clearPending()
-            break
-          case 'panel:summarize':
-            void summarizeActiveTab((msg as { refresh?: boolean }).refresh ? 'refresh' : 'manual', {
-              refresh: Boolean((msg as { refresh?: boolean }).refresh),
-              inputMode: (msg as { inputMode?: 'page' | 'video' }).inputMode,
-            })
-            break
-          case 'panel:chat':
-            void (async () => {
-              const settings = await loadSettings()
-              if (!settings.chatEnabled) {
-                void send({ type: 'run:error', message: 'Chat is disabled in settings' })
-                return
-              }
-              if (!settings.token.trim()) {
-                void send({ type: 'run:error', message: 'Setup required (missing token)' })
-                return
-              }
-
-              const tab = await getActiveTab()
-              if (!tab?.id || !canSummarizeUrl(tab.url)) {
-                void send({ type: 'run:error', message: 'Cannot chat on this page' })
-                return
-              }
-
-              let cachedExtract: CachedExtract
-              try {
-                cachedExtract = await ensureChatExtract(tab, settings)
-              } catch (err) {
-                const message = err instanceof Error ? err.message : String(err)
-                void send({ type: 'run:error', message })
-                sendStatus(`Error: ${message}`)
-                return
-              }
-
-              const chatPayload = msg as {
-                messages: Array<{ role: 'user' | 'assistant'; content: string }>
-                summary?: string | null
-              }
-              const chatMessages = chatPayload.messages
-              const summaryText =
-                typeof chatPayload.summary === 'string' ? chatPayload.summary.trim() : ''
-              const pageContent = buildChatPageContent({
-                transcript: cachedExtract.text,
-                summary: summaryText,
-                summaryCap: settings.maxChars,
-                metadata: {
-                  url: cachedExtract.url,
-                  title: cachedExtract.title,
-                  source: cachedExtract.source,
-                  extractionStrategy:
-                    cachedExtract.source === 'page'
-                      ? 'readability (content script)'
-                      : (cachedExtract.diagnostics?.strategy ?? null),
-                  markdownProvider: cachedExtract.diagnostics?.markdown?.used
-                    ? (cachedExtract.diagnostics?.markdown?.provider ?? 'unknown')
-                    : null,
-                  firecrawlUsed: cachedExtract.diagnostics?.firecrawl?.used ?? null,
-                  transcriptSource: cachedExtract.transcriptSource,
-                  transcriptionProvider: cachedExtract.transcriptionProvider,
-                  transcriptCache: cachedExtract.diagnostics?.transcript?.cacheStatus ?? null,
-                  attemptedTranscriptProviders:
-                    cachedExtract.diagnostics?.transcript?.attemptedProviders ?? null,
-                  mediaDurationSeconds: cachedExtract.mediaDurationSeconds,
-                  totalCharacters: cachedExtract.totalCharacters,
-                  wordCount: cachedExtract.wordCount,
-                  transcriptCharacters: cachedExtract.transcriptCharacters,
-                  transcriptWordCount: cachedExtract.transcriptWordCount,
-                  transcriptLines: cachedExtract.transcriptLines,
-                  truncated: cachedExtract.truncated,
-                },
-              })
-
-              sendStatus('Sending to AI…')
-
-              try {
-                const res = await fetch('http://127.0.0.1:8787/v1/chat', {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${settings.token.trim()}`,
-                    'content-type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    url: cachedExtract.url,
-                    title: cachedExtract.title,
-                    pageContent,
-                    messages: chatMessages,
-                    model: settings.model,
-                  }),
-                })
-                const json = (await res.json()) as { ok: boolean; id?: string; error?: string }
-                if (!res.ok || !json.ok || !json.id) {
-                  throw new Error(json.error || `${res.status} ${res.statusText}`)
-                }
-
-                void send({
-                  type: 'chat:start',
-                  payload: { id: json.id, url: cachedExtract.url },
-                })
-                sendStatus('')
-              } catch (err) {
-                const message = friendlyFetchError(err, 'Chat request failed')
-                void send({ type: 'run:error', message })
-                sendStatus(`Error: ${message}`)
-              }
-            })()
-            break
-          case 'panel:ping':
-            void emitState('', { checkRecovery: true })
-            break
-          case 'panel:rememberUrl':
-            lastSummarizedUrl = (msg as { url: string }).url
-            inflightUrl = null
-            break
-          case 'panel:setAuto':
-            void (async () => {
-              await patchSettings({ autoSummarize: (msg as { value: boolean }).value })
-              void emitState('')
-              if ((msg as { value: boolean }).value) void summarizeActiveTab('auto-enabled')
-            })()
-            break
-          case 'panel:setLength':
-            void (async () => {
-              const next = (msg as { value: string }).value
-              const current = await loadSettings()
-              if (current.length === next) return
-              await patchSettings({ length: next })
-              void emitState('')
-              void summarizeActiveTab('length-change')
-            })()
-            break
-          case 'panel:openOptions':
-            void openOptionsWindow()
-            break
-        }
-
-        try {
-          sendResponse({ ok: true })
-        } catch {
-          // ignore
-        }
-        // keep SW alive for async branches
-        return true
-      }
-
       if (type === 'hover:summarize') {
         const msg = raw as HoverToBg & { type: 'hover:summarize' }
         void (async () => {
@@ -1073,32 +1152,47 @@ export default defineBackground(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return
     if (!changes.settings) return
-    void emitState('')
+    for (const session of panelSessions.values()) {
+      void emitState(session, '')
+    }
   })
 
-  chrome.webNavigation.onHistoryStateUpdated.addListener(() => {
-    const now = Date.now()
-    if (now - lastNavAt < 700) return
-    lastNavAt = now
-    void emitState('')
-    void summarizeActiveTab('spa-nav')
+  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    void (async () => {
+      const tab = await chrome.tabs.get(details.tabId).catch(() => null)
+      const windowId = tab?.windowId
+      if (typeof windowId !== 'number') return
+      const session = getPanelSession(windowId)
+      if (!session) return
+      const now = Date.now()
+      if (now - session.lastNavAt < 700) return
+      session.lastNavAt = now
+      void emitState(session, '')
+      void summarizeActiveTab(session, 'spa-nav')
+    })()
   })
 
-  chrome.tabs.onActivated.addListener(() => {
-    void emitState('')
-    void summarizeActiveTab('tab-activated')
+  chrome.tabs.onActivated.addListener((info) => {
+    const session = getPanelSession(info.windowId)
+    if (!session) return
+    void emitState(session, '')
+    void summarizeActiveTab(session, 'tab-activated')
   })
 
-  chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    const windowId = tab?.windowId
+    if (typeof windowId !== 'number') return
+    const session = getPanelSession(windowId)
+    if (!session) return
     if (typeof changeInfo.title === 'string' || typeof changeInfo.url === 'string') {
-      void emitState('')
+      void emitState(session, '')
     }
     if (typeof changeInfo.url === 'string') {
-      void summarizeActiveTab('tab-url-change')
+      void summarizeActiveTab(session, 'tab-url-change')
     }
     if (changeInfo.status === 'complete') {
-      void emitState('')
-      void summarizeActiveTab('tab-updated')
+      void emitState(session, '')
+      void summarizeActiveTab(session, 'tab-updated')
     }
   })
 

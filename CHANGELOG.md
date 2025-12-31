@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 - Unreleased
+
+### Fixes
+
+- Chrome Side Panel: scope streams/state per window so other windows don’t wipe active summaries.
+
 ## 0.9.0 - 2025-12-31
 
 ### Highlights
