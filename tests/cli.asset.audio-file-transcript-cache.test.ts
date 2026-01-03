@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { TranscriptCache } from '../packages/core/src/content/cache/types.js'
-import { readTranscriptCache, writeTranscriptCache } from '../packages/core/src/content/transcript/cache.js'
+import { readTranscriptCache } from '../packages/core/src/content/transcript/cache.js'
 
 describe('transcript cache integration with audio files', () => {
   it('caches transcripts using file modification time as cache key component', async () => {
