@@ -938,6 +938,12 @@ export default defineBackground(() => {
       return
     }
 
+    const logPanel = (event: string, detail?: Record<string, unknown>) => {
+      if (!settings.extendedLogging) return
+      const payload = detail ? { event, ...detail } : { event }
+      console.debug('[summarize][panel:bg]', payload)
+    }
+
     if (reason === 'spa-nav' || reason === 'tab-url-change') {
       await new Promise((resolve) => setTimeout(resolve, 220))
     }
