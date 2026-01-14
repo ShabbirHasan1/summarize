@@ -1105,12 +1105,18 @@ function normalizeOcrText(raw: string | null | undefined): string {
   const tokens = text.split(' ').filter(Boolean)
   if (tokens.length === 0) return ''
 
-  const letterTokens = tokens.filter((token) => /\p{L}/u.test(token))
-  const shortLetterTokens = letterTokens.filter((token) => token.length <= 2)
+  const wordishTokens = tokens
+    .map((token) => token.replace(/[^\p{L}]/gu, ''))
+    .filter((token) => token.length > 0)
+  const letterTokens = wordishTokens
+  const shortLetterTokens = letterTokens.filter((token) => token.length <= 3)
   const longWordishTokens = tokens.filter((token) => {
     const stripped = token.replace(/[^\p{L}\p{N}]/gu, '')
     return stripped.length >= 4 && /\p{L}/u.test(stripped)
   })
+
+  const mixedCaseTokens = letterTokens.filter((token) => /[A-Z]/.test(token) && /[a-z]/.test(token))
+  const hasLongWord = letterTokens.some((token) => token.length >= 5 && /[aeiou]/i.test(token))
 
   const chars = Array.from(text)
   const letters = chars.filter((char) => /\p{L}/u.test(char)).length
@@ -1125,6 +1131,16 @@ function normalizeOcrText(raw: string | null | undefined): string {
     tokens.length >= SLIDE_OCR_GIBBERISH_MIN_TOKENS &&
     letterTokens.length > 0 &&
     shortLetterTokens.length / letterTokens.length >= SLIDE_OCR_GIBBERISH_MAX_SHORT_TOKEN_RATIO &&
+    longWordishTokens.length < 2
+  ) {
+    return ''
+  }
+
+  if (
+    tokens.length >= SLIDE_OCR_GIBBERISH_MIN_TOKENS &&
+    letterTokens.length > 0 &&
+    !hasLongWord &&
+    mixedCaseTokens.length / letterTokens.length >= 0.45 &&
     longWordishTokens.length < 2
   ) {
     return ''
