@@ -95,40 +95,6 @@ const setActiveTab = (next: string) => {
   }
 }
 
-const storedTab = localStorage.getItem(tabStorageKey)
-const initialTab = storedTab && tabIds.has(storedTab) ? storedTab : 'general'
-setActiveTab(initialTab)
-
-tabButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    const tab = button.dataset.tab
-    if (tab) setActiveTab(tab)
-  })
-})
-
-tabsRoot.addEventListener('keydown', (event) => {
-  if (!(event instanceof KeyboardEvent)) return
-  const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
-  if (!keys.includes(event.key)) return
-  event.preventDefault()
-  const currentIndex = tabButtons.findIndex(
-    (button) => button.getAttribute('aria-selected') === 'true'
-  )
-  if (currentIndex < 0) return
-  const lastIndex = tabButtons.length - 1
-  let nextIndex = currentIndex
-  if (event.key === 'ArrowLeft') nextIndex = currentIndex === 0 ? lastIndex : currentIndex - 1
-  if (event.key === 'ArrowRight') nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1
-  if (event.key === 'Home') nextIndex = 0
-  if (event.key === 'End') nextIndex = lastIndex
-  const nextButton = tabButtons[nextIndex]
-  if (!nextButton) return
-  const nextTab = nextButton.dataset.tab
-  if (!nextTab) return
-  setActiveTab(nextTab)
-  nextButton.focus()
-})
-
 let autoValue = defaultSettings.autoSummarize
 let chatEnabledValue = defaultSettings.chatEnabled
 let automationEnabledValue = defaultSettings.automationEnabled
@@ -174,12 +140,12 @@ const normalizeTailCount = (value: string) => {
   return Math.max(100, Math.min(5000, Math.round(parsed)))
 }
 
-const stopLogsAuto = () => {
+function stopLogsAuto() {
   if (logsAutoTimer) window.clearInterval(logsAutoTimer)
   logsAutoTimer = 0
 }
 
-const startLogsAuto = () => {
+function startLogsAuto() {
   stopLogsAuto()
   logsAutoTimer = window.setInterval(() => {
     if (resolveActiveTab() !== 'logs') return
@@ -250,6 +216,40 @@ async function refreshLogs(isAuto = false) {
     logsRefreshInFlight = false
   }
 }
+
+const storedTab = localStorage.getItem(tabStorageKey)
+const initialTab = storedTab && tabIds.has(storedTab) ? storedTab : 'general'
+setActiveTab(initialTab)
+
+tabButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const tab = button.dataset.tab
+    if (tab) setActiveTab(tab)
+  })
+})
+
+tabsRoot.addEventListener('keydown', (event) => {
+  if (!(event instanceof KeyboardEvent)) return
+  const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
+  if (!keys.includes(event.key)) return
+  event.preventDefault()
+  const currentIndex = tabButtons.findIndex(
+    (button) => button.getAttribute('aria-selected') === 'true'
+  )
+  if (currentIndex < 0) return
+  const lastIndex = tabButtons.length - 1
+  let nextIndex = currentIndex
+  if (event.key === 'ArrowLeft') nextIndex = currentIndex === 0 ? lastIndex : currentIndex - 1
+  if (event.key === 'ArrowRight') nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1
+  if (event.key === 'Home') nextIndex = 0
+  if (event.key === 'End') nextIndex = lastIndex
+  const nextButton = tabButtons[nextIndex]
+  if (!nextButton) return
+  const nextTab = nextButton.dataset.tab
+  if (!nextTab) return
+  setActiveTab(nextTab)
+  nextButton.focus()
+})
 
 let statusTimer = 0
 const flashStatus = (text: string, duration = 900) => {
