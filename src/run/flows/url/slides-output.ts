@@ -1,4 +1,5 @@
 import { createMarkdownStreamer, render as renderMarkdownAnsi } from 'markdansi'
+import { promises as fs } from 'node:fs'
 
 import type { ExtractedLinkContent } from '../../../content/index.js'
 import type { SummaryLength } from '../../../shared/contracts.js'
@@ -142,6 +143,7 @@ export function createSlidesTerminalOutput({
   flags: {
     plain: boolean
     lengthArg: { kind: 'preset'; preset: SummaryLength } | { kind: 'chars'; maxCharacters: number }
+    slidesDebug?: boolean
   }
   extracted: ExtractedLinkContent
   slides: SlideExtractionResult | null | undefined
@@ -222,10 +224,22 @@ export function createSlidesTerminalOutput({
 
     clearProgressForStdout()
     io.stdout.write('\n')
-    if (inlineEnabled && imagePath && inlineRenderer) {
+    if (inlineEnabled && imagePath && inlineRenderer && !flags.slidesDebug) {
       await inlineRenderer.renderSlide({ index, timestamp: timestamp ?? 0, imagePath }, null)
     }
-    io.stdout.write(`${label}\n\n`)
+    if (flags.slidesDebug) {
+      let resolvedPath = imagePath ?? '(missing image path)'
+      if (imagePath) {
+        const exists = await fs
+          .stat(imagePath)
+          .then(() => true)
+          .catch(() => false)
+        resolvedPath = exists ? imagePath : `${imagePath} (missing)`
+      }
+      io.stdout.write(`${label}\n${resolvedPath}\n\n`)
+    } else {
+      io.stdout.write(`${label}\n\n`)
+    }
     restoreProgressAfterStdout?.()
 
     if (onProgressText && total > 0) {

@@ -254,6 +254,7 @@ export async function runCli(
   const json = Boolean(program.opts().json)
   const transcriptTimestamps =
     Boolean(program.opts().timestamps) || Boolean(program.opts().slides || program.opts().slidesOcr)
+  const slidesDebug = Boolean(program.opts().slidesDebug)
   const streamMode = parseStreamMode(program.opts().stream as string)
   const plain = Boolean(program.opts().plain)
   const debug = Boolean(program.opts().debug)
@@ -734,6 +735,7 @@ export async function runCli(
         configPath,
         configModelLabel,
         slides: slidesSettings,
+        slidesDebug,
       },
       model: {
         requestedModel,

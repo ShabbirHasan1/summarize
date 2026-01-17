@@ -135,6 +135,29 @@ function pickIntroParagraph(markdown: string): string {
   return sentences.slice(0, 3).join(' ').trim()
 }
 
+function hasSlideLabelLines(markdown: string): boolean {
+  return markdown
+    .split('\n')
+    .some((line) => SLIDE_LABEL_PATTERN.test(line.trim().replace(/\s+/g, ' ')))
+}
+
+function findFirstSlideTokenIndex(markdown: string): number | null {
+  const tag = markdown.match(/\[slide:\d+\]/i)
+  const label = markdown.match(/^\s*slide\s+\d+(?:\s*[\u00b7:-].*)?$/im)
+  const indexes = [tag?.index, label?.index].filter((idx): idx is number => idx != null)
+  if (indexes.length === 0) return null
+  return Math.min(...indexes)
+}
+
+function trimIntroBeforeSlides(markdown: string): string {
+  const firstIndex = findFirstSlideTokenIndex(markdown)
+  if (firstIndex == null) return markdown
+  const intro = pickIntroParagraph(markdown.slice(0, firstIndex))
+  const rest = markdown.slice(firstIndex).trimStart()
+  if (!intro) return rest
+  return `${intro}\n\n${rest}`
+}
+
 export function coerceSummaryWithSlides({
   markdown,
   slides,
@@ -145,11 +168,20 @@ export function coerceSummaryWithSlides({
   if (!markdown.trim() || slides.length === 0) return markdown
   const existingMarkers = extractSlideMarkers(markdown)
   const hasSlidesHeading = /^#{1,3}\s+Slides\b/im.test(markdown)
-  if (existingMarkers.length > 0 && !hasSlidesHeading) return markdown
+  const hasLabels = hasSlideLabelLines(markdown)
+  const ordered = slides.slice().sort((a, b) => a.index - b.index)
+  const expectedIndexes = ordered.map((slide) => slide.index)
+  const markerSet = new Set(existingMarkers)
+  const markersComplete =
+    markerSet.size === expectedIndexes.length &&
+    expectedIndexes.every((index) => markerSet.has(index))
+
+  if (markersComplete && !hasSlidesHeading && !hasLabels) {
+    return trimIntroBeforeSlides(markdown)
+  }
 
   const { summary, slidesSection } = splitSummaryFromSlides(markdown)
   const intro = pickIntroParagraph(summary)
-  const ordered = slides.slice().sort((a, b) => a.index - b.index)
   const slideSummaries = slidesSection ? parseSlideSummariesFromMarkdown(markdown) : new Map()
 
   if (slideSummaries.size > 0) {
