@@ -466,9 +466,7 @@ export async function runUrlFlow({
       const dim = (value: string) => ansi('90', value, flags.verboseColor)
       const accent = (value: string) => ansi('36', value, flags.verboseColor)
       const sentLabel = `${dim('sent ')}${extractionUi.contentSizeLabel}${extractionUi.viaSourceLabel}`
-      const modelLabel = modelId
-        ? `${dim('model: ')}${accent(modelId)}`
-        : ''
+      const modelLabel = modelId ? `${dim('model: ')}${accent(modelId)}` : ''
       const meta = modelLabel ? `${sentLabel}${dim(', ')}${modelLabel}` : sentLabel
       return `Summarizing ${dim('(')}${meta}${dim(')')}…`
     }
