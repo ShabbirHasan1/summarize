@@ -1535,11 +1535,7 @@ function updateSlideThumb(
   img.dataset.slideImageUrl = ''
 }
 
-function updateSlideMeta(
-  el: HTMLElement,
-  index: number,
-  timestamp: number | null | undefined
-) {
+function updateSlideMeta(el: HTMLElement, index: number, timestamp: number | null | undefined) {
   const formatted = formatSlideTimestamp(timestamp)
   el.textContent = formatted ? `Slide ${index} · ${formatted}` : `Slide ${index}`
 }

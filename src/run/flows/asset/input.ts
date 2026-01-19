@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { isDirectMediaUrl } from '@steipete/summarize-core/content/url'
 import {
   classifyUrl,
   type InputTarget,
@@ -24,15 +25,40 @@ function isTranscribableMediaType(mediaType: string): boolean {
 /**
  * Check if a file extension indicates transcribable media.
  * Used to route large audio/video files directly to the media handler
- * which has a higher size limit (500MB vs 50MB).
+ * which has a higher size limit (2GB vs 50MB).
  */
 function isTranscribableExtension(filePath: string): boolean {
-  const ext = path.extname(filePath).toLowerCase()
+  if (isDirectMediaUrl(filePath)) return true
+  const normalized = (() => {
+    try {
+      return new URL(filePath).pathname
+    } catch {
+      return filePath.split(/[?#]/, 1)[0]
+    }
+  })()
+  const ext = path.extname(normalized).toLowerCase()
   const transcribableExtensions = new Set([
     // Audio
-    '.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac', '.wma', '.aiff', '.opus',
+    '.mp3',
+    '.wav',
+    '.m4a',
+    '.aac',
+    '.ogg',
+    '.flac',
+    '.wma',
+    '.aiff',
+    '.opus',
     // Video
-    '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpeg', '.mpg',
+    '.mp4',
+    '.mkv',
+    '.avi',
+    '.mov',
+    '.wmv',
+    '.flv',
+    '.webm',
+    '.m4v',
+    '.mpeg',
+    '.mpg',
   ])
   return transcribableExtensions.has(ext)
 }
@@ -100,7 +126,7 @@ export async function handleFileInput(
     const accent = (value: string) => ansi('36', value, ctx.progressEnabled)
 
     // Check if file looks like transcribable media by extension.
-    // If so, route directly to summarizeMediaFile which has a higher size limit (500MB).
+    // If so, route directly to summarizeMediaFile which has a higher size limit (2GB).
     // This avoids the 50MB limit in loadLocalAsset for audio/video files.
     if (isTranscribableExtension(inputTarget.filePath) && ctx.summarizeMediaFile) {
       const filename = path.basename(inputTarget.filePath)

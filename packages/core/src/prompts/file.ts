@@ -23,7 +23,9 @@ export function buildFileSummaryPrompt({
   lengthInstruction?: string | null
   languageInstruction?: string | null
 }): string {
-  const shouldIgnoreSponsors = Boolean(mediaType?.startsWith('audio/') || mediaType?.startsWith('video/'))
+  const shouldIgnoreSponsors = Boolean(
+    mediaType?.startsWith('audio/') || mediaType?.startsWith('video/')
+  )
   const contentCharacters = typeof contentLength === 'number' ? contentLength : null
   const effectiveSummaryLength =
     typeof summaryLength === 'string'

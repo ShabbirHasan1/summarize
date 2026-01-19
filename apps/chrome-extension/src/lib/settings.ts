@@ -267,9 +267,7 @@ export async function loadSettings(): Promise<Settings> {
     slidesEnabled:
       typeof raw.slidesEnabled === 'boolean' ? raw.slidesEnabled : defaultSettings.slidesEnabled,
     slidesParallel:
-      typeof raw.slidesParallel === 'boolean'
-        ? raw.slidesParallel
-        : defaultSettings.slidesParallel,
+      typeof raw.slidesParallel === 'boolean' ? raw.slidesParallel : defaultSettings.slidesParallel,
     slidesLayout: normalizeSlidesLayout(raw.slidesLayout),
     summaryTimestamps:
       typeof raw.summaryTimestamps === 'boolean'

@@ -16,6 +16,8 @@ import { hasBirdCli } from '../../env.js'
 import { writeVerbose } from '../../logging.js'
 import type { AssetSummaryContext, SummarizeAssetArgs } from './summary.js'
 
+const MAX_LOCAL_MEDIA_BYTES = 2 * 1024 * 1024 * 1024 // 2 GB
+
 /**
  * Get file modification time for cache invalidation support.
  * Returns null if the path is not a local file or file doesn't exist.
@@ -60,14 +62,17 @@ export async function summarizeMediaFile(
   const isBinaryAvailable = async (binary: string): Promise<boolean> => {
     const { spawn } = await import('node:child_process')
     return new Promise<boolean>((resolve) => {
-      const proc = spawn(binary, ['--help'], { stdio: ['ignore', 'ignore', 'ignore'] })
+      const proc = spawn(binary, ['--help'], {
+        stdio: ['ignore', 'ignore', 'ignore'],
+        env: ctx.env,
+      })
       proc.on('error', () => resolve(false))
       proc.on('close', (code) => resolve(code === 0))
     })
   }
 
   // Check for yt-dlp: either via env var or on PATH
-  const ytDlpPath = ctx.env.YT_DLP_PATH || (await isBinaryAvailable('yt-dlp') ? 'yt-dlp' : null)
+  const ytDlpPath = ctx.env.YT_DLP_PATH || ((await isBinaryAvailable('yt-dlp')) ? 'yt-dlp' : null)
 
   // Check for whisper.cpp: either via env var or by checking if whisper-cli is on PATH
   const hasLocalWhisper = ctx.env.SUMMARIZE_WHISPER_CPP_BINARY
@@ -92,8 +97,17 @@ export async function summarizeMediaFile(
 See: https://github.com/openai/whisper for setup details`)
   }
 
+  const isHttpUrl = (value: string): boolean => {
+    try {
+      const parsed = new URL(value)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
   // For URLs, skip local file validation - yt-dlp will handle the download
-  const isUrl = args.sourceKind === 'asset-url' || args.sourceLabel.startsWith('http')
+  const isUrl = args.sourceKind === 'asset-url' || isHttpUrl(args.sourceLabel)
 
   let absolutePath: string
   let fileMtime: number | null = null
@@ -111,7 +125,7 @@ See: https://github.com/openai/whisper for setup details`)
     try {
       const stats = statSync(absolutePath)
       const fileSizeBytes = stats.size
-      const maxSizeBytes = 500 * 1024 * 1024 // 500 MB
+      const maxSizeBytes = MAX_LOCAL_MEDIA_BYTES
 
       if (fileSizeBytes === 0) {
         throw new Error('Media file is empty (0 bytes). Please provide a valid audio/video file.')
@@ -120,7 +134,7 @@ See: https://github.com/openai/whisper for setup details`)
       if (fileSizeBytes > maxSizeBytes) {
         const fileSizeMB = Math.round(fileSizeBytes / (1024 * 1024))
         throw new Error(
-          `Media file is too large (${fileSizeMB} MB). Maximum supported size is 500 MB.`
+          `Media file is too large (${fileSizeMB} MB). Maximum supported size is 2 GB.`
         )
       }
     } catch (error) {
@@ -225,6 +239,7 @@ See: https://github.com/openai/whisper for setup details`)
 
     // If extract mode, output the transcript directly without LLM summarization
     if (ctx.extractMode) {
+      ctx.clearProgressForStdout()
       ctx.stdout.write(extracted.content)
       if (!extracted.content.endsWith('\n')) {
         ctx.stdout.write('\n')
