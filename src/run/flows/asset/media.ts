@@ -14,9 +14,8 @@ import { readTweetWithBird } from '../../bird.js'
 import { resolveTwitterCookies } from '../../cookies/twitter.js'
 import { hasBirdCli } from '../../env.js'
 import { writeVerbose } from '../../logging.js'
+import { MAX_LOCAL_MEDIA_BYTES, MAX_LOCAL_MEDIA_LABEL } from './media-policy.js'
 import type { AssetSummaryContext, SummarizeAssetArgs } from './summary.js'
-
-const MAX_LOCAL_MEDIA_BYTES = 2 * 1024 * 1024 * 1024 // 2 GB
 
 /**
  * Get file modification time for cache invalidation support.
@@ -134,7 +133,7 @@ See: https://github.com/openai/whisper for setup details`)
       if (fileSizeBytes > maxSizeBytes) {
         const fileSizeMB = Math.round(fileSizeBytes / (1024 * 1024))
         throw new Error(
-          `Media file is too large (${fileSizeMB} MB). Maximum supported size is 2 GB.`
+          `Media file is too large (${fileSizeMB} MB). Maximum supported size is ${MAX_LOCAL_MEDIA_LABEL}.`
         )
       }
     } catch (error) {

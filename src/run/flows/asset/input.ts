@@ -22,6 +22,38 @@ function isTranscribableMediaType(mediaType: string): boolean {
   return normalized.startsWith('audio/') || normalized.startsWith('video/')
 }
 
+const TRANSCRIBABLE_EXTENSIONS = new Set([
+  // Audio
+  '.mp3',
+  '.wav',
+  '.m4a',
+  '.aac',
+  '.ogg',
+  '.flac',
+  '.wma',
+  '.aiff',
+  '.opus',
+  // Video
+  '.mp4',
+  '.mkv',
+  '.avi',
+  '.mov',
+  '.wmv',
+  '.flv',
+  '.webm',
+  '.m4v',
+  '.mpeg',
+  '.mpg',
+])
+
+function normalizePathForExtension(value: string): string {
+  try {
+    return new URL(value).pathname
+  } catch {
+    return value.split(/[?#]/, 1)[0]
+  }
+}
+
 /**
  * Check if a file extension indicates transcribable media.
  * Used to route large audio/video files directly to the media handler
@@ -29,38 +61,77 @@ function isTranscribableMediaType(mediaType: string): boolean {
  */
 function isTranscribableExtension(filePath: string): boolean {
   if (isDirectMediaUrl(filePath)) return true
-  const normalized = (() => {
-    try {
-      return new URL(filePath).pathname
-    } catch {
-      return filePath.split(/[?#]/, 1)[0]
-    }
-  })()
-  const ext = path.extname(normalized).toLowerCase()
-  const transcribableExtensions = new Set([
-    // Audio
-    '.mp3',
-    '.wav',
-    '.m4a',
-    '.aac',
-    '.ogg',
-    '.flac',
-    '.wma',
-    '.aiff',
-    '.opus',
-    // Video
-    '.mp4',
-    '.mkv',
-    '.avi',
-    '.mov',
-    '.wmv',
-    '.flv',
-    '.webm',
-    '.m4v',
-    '.mpeg',
-    '.mpg',
-  ])
-  return transcribableExtensions.has(ext)
+  const ext = path.extname(normalizePathForExtension(filePath)).toLowerCase()
+  return TRANSCRIBABLE_EXTENSIONS.has(ext)
+}
+
+function formatTranscriptionMeta({
+  filename,
+  sizeLabel,
+  dim,
+}: {
+  filename: string
+  sizeLabel: string | null
+  dim: (value: string) => string
+}): string {
+  const details = sizeLabel ? `${sizeLabel}` : ''
+  return details ? `${filename} ${dim('(')}${details}${dim(')')}` : filename
+}
+
+function setTranscribingSpinnerText({
+  spinner,
+  meta,
+  dim,
+  accent,
+  modelId,
+}: {
+  spinner: ReturnType<typeof startSpinner>
+  meta: string
+  dim: (value: string) => string
+  accent: (value: string) => string
+  modelId?: string
+}) {
+  const modelLabel = modelId ? ` ${dim('(')}${dim('model: ')}${accent(modelId)}${dim(')')}` : ''
+  spinner.setText(`Transcribing ${meta}${modelLabel}…`)
+}
+
+async function runMediaTranscription({
+  ctx,
+  sourceKind,
+  sourceLabel,
+  filename,
+  sizeLabel,
+  spinner,
+}: {
+  ctx: AssetInputContext
+  sourceKind: 'file' | 'asset-url'
+  sourceLabel: string
+  filename: string
+  sizeLabel: string | null
+  spinner: ReturnType<typeof startSpinner>
+}): Promise<void> {
+  const dim = (value: string) => ansi('90', value, ctx.progressEnabled)
+  const accent = (value: string) => ansi('36', value, ctx.progressEnabled)
+  const meta = formatTranscriptionMeta({ filename, sizeLabel, dim })
+
+  if (ctx.progressEnabled) {
+    setTranscribingSpinnerText({ spinner, meta, dim, accent })
+  }
+
+  await ctx.summarizeMediaFile?.({
+    sourceKind,
+    sourceLabel,
+    attachment: {
+      kind: 'file',
+      filename,
+      mediaType: 'audio/mpeg', // Will be detected properly by summarizeMediaFile
+      bytes: new Uint8Array(0), // Placeholder - summarizeMediaFile reads from path directly
+    },
+    onModelChosen: (modelId) => {
+      if (!ctx.progressEnabled) return
+      setTranscribingSpinnerText({ spinner, meta, dim, accent, modelId })
+    },
+  })
 }
 
 export type AssetInputContext = {
@@ -122,37 +193,18 @@ export async function handleFileInput(
   }
   ctx.setClearProgressBeforeStdout(pauseProgressLine)
   try {
-    const dim = (value: string) => ansi('90', value, ctx.progressEnabled)
-    const accent = (value: string) => ansi('36', value, ctx.progressEnabled)
-
     // Check if file looks like transcribable media by extension.
     // If so, route directly to summarizeMediaFile which has a higher size limit (2GB).
     // This avoids the 50MB limit in loadLocalAsset for audio/video files.
     if (isTranscribableExtension(inputTarget.filePath) && ctx.summarizeMediaFile) {
       const filename = path.basename(inputTarget.filePath)
-      if (ctx.progressEnabled) {
-        const details = sizeLabel ? `${sizeLabel}` : ''
-        const meta = details ? `${filename} ${dim('(')}${details}${dim(')')}` : filename
-        spinner.setText(`Transcribing ${meta}…`)
-      }
-
-      await ctx.summarizeMediaFile({
+      await runMediaTranscription({
+        ctx,
         sourceKind: 'file',
         sourceLabel: inputTarget.filePath,
-        attachment: {
-          kind: 'file',
-          filename,
-          mediaType: 'audio/mpeg', // Will be detected properly by summarizeMediaFile
-          bytes: new Uint8Array(0), // Placeholder - summarizeMediaFile reads from path directly
-        },
-        onModelChosen: (modelId) => {
-          if (!ctx.progressEnabled) return
-          const details = sizeLabel ? `${sizeLabel}` : ''
-          const meta = details ? `${filename} ${dim('(')}${details}${dim(')')}` : filename
-          spinner.setText(
-            `Transcribing ${meta} ${dim('(')}${dim('model: ')}${accent(modelId)}${dim(')')}…`
-          )
-        },
+        filename,
+        sizeLabel,
+        spinner,
       })
       return true
     }
@@ -163,6 +215,9 @@ export async function handleFileInput(
     const isTranscribable = isTranscribableMediaType(loaded.attachment.mediaType)
     const handler =
       isTranscribable && ctx.summarizeMediaFile ? ctx.summarizeMediaFile : ctx.summarizeAsset
+
+    const dim = (value: string) => ansi('90', value, ctx.progressEnabled)
+    const accent = (value: string) => ansi('36', value, ctx.progressEnabled)
 
     if (ctx.progressEnabled) {
       const mt = loaded.attachment.mediaType
@@ -238,23 +293,13 @@ export async function withUrlAsset(
     }
     ctx.setClearProgressBeforeStdout(pauseProgressLine)
     try {
-      const dim = (value: string) => ansi('90', value, ctx.progressEnabled)
-      const accent = (value: string) => ansi('36', value, ctx.progressEnabled)
-      await ctx.summarizeMediaFile({
+      await runMediaTranscription({
+        ctx,
         sourceKind: 'asset-url',
         sourceLabel: url,
-        attachment: {
-          kind: 'file',
-          filename,
-          mediaType: 'audio/mpeg',
-          bytes: new Uint8Array(0),
-        },
-        onModelChosen: (modelId) => {
-          if (!ctx.progressEnabled) return
-          spinner.setText(
-            `Transcribing ${filename} ${dim('(')}${dim('model: ')}${accent(modelId)}${dim(')')}…`
-          )
-        },
+        filename,
+        sizeLabel: null,
+        spinner,
       })
       return true
     } finally {

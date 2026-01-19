@@ -22,6 +22,7 @@ read_when:
 - Direct media URLs (mp4/webm/m4a/etc) skip HTML and transcribe.
 - Local audio/video files are routed through the same transcript-first pipeline.
 - YouTube still uses the YouTube transcript pipeline (captions → yt-dlp fallback).
+ - Local media files are capped at 2 GB; remote media URLs are best-effort via yt-dlp (no explicit size limit).
 
 ## Chrome extension behavior
 

@@ -43,6 +43,7 @@
 ### Improvements
 
 - Daemon: emit slides start/progress/done metadata in extended logging for easier debugging.
+- Media: refactor routing helpers and size policy (#48, thanks @steipete).
 
 ### Docs
 
