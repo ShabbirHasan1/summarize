@@ -119,7 +119,16 @@ export async function runUrlFlow({
     stream: io.stderr,
   })
   if (!hooks.onSlidesProgress && flags.progressEnabled) {
-    hooks.onSlidesProgress = (text: string) => spinner.setText(text)
+    hooks.onSlidesProgress = (text: string) => {
+      spinner.setText(text)
+      const match = text.match(/(\d{1,3})%/)
+      const percent = match ? Number(match[1]) : null
+      if (Number.isFinite(percent) && percent !== null) {
+        oscProgress.setPercent('Slides', Math.max(0, Math.min(100, percent)))
+      } else {
+        oscProgress.setIndeterminate('Slides')
+      }
+    }
   }
   const websiteProgress = createWebsiteProgress({
     enabled: flags.progressEnabled,

@@ -1621,17 +1621,20 @@ async function runProcess({
   timeoutMs,
   errorLabel,
   onStderrLine,
+  onStdoutLine,
 }: {
   command: string
   args: string[]
   timeoutMs: number
   errorLabel: string
   onStderrLine?: (line: string) => void
+  onStdoutLine?: (line: string) => void
 }): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const proc = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    const proc = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
     let stderrBuffer = ''
+    let stdoutBuffer = ''
 
     const flushLine = (line: string) => {
       if (onStderrLine) onStderrLine(line)
@@ -1653,6 +1656,21 @@ async function runProcess({
       })
     }
 
+    if (proc.stdout) {
+      const handleStdoutLine = onStdoutLine ?? onStderrLine
+      if (handleStdoutLine) {
+        proc.stdout.setEncoding('utf8')
+        proc.stdout.on('data', (chunk: string) => {
+          stdoutBuffer += chunk
+          const lines = stdoutBuffer.split(/\r?\n/)
+          stdoutBuffer = lines.pop() ?? ''
+          for (const line of lines) {
+            if (line) handleStdoutLine(line)
+          }
+        })
+      }
+    }
+
     const timeout = setTimeout(() => {
       proc.kill('SIGKILL')
       reject(new Error(`${errorLabel} timed out`))
@@ -1667,6 +1685,10 @@ async function runProcess({
       clearTimeout(timeout)
       if (stderrBuffer.trim().length > 0) {
         flushLine(stderrBuffer.trim())
+      }
+      if (stdoutBuffer.trim().length > 0) {
+        const handleStdoutLine = onStdoutLine ?? onStderrLine
+        if (handleStdoutLine) handleStdoutLine(stdoutBuffer.trim())
       }
       if (code === 0) {
         resolve()

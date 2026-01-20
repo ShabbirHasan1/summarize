@@ -8,6 +8,7 @@ import {
   resolveSlideSourceFromUrl,
   type SlideExtractionResult,
 } from '../slides/index.js'
+import { createOscProgressController } from '../tty/osc-progress.js'
 import { startSpinner } from '../tty/spinner.js'
 import { formatVersionLine } from '../version.js'
 import { applyHelpStyle, buildSlidesProgram } from './help.js'
@@ -130,6 +131,14 @@ export async function handleSlidesCliRequest({
 
   const verboseEnabled = Boolean(opts.verbose || opts.debug)
   const progressEnabled = isRichTty(stderr) && !opts.json && !verboseEnabled
+  const oscProgress = progressEnabled
+    ? createOscProgressController({
+        label: 'Slides',
+        env: envForRun,
+        isTty: progressEnabled,
+        write: (data: string) => stderr.write(data),
+      })
+    : null
   const spinner = startSpinner({
     text: 'Extracting slides…',
     enabled: progressEnabled,
@@ -142,6 +151,13 @@ export async function handleSlidesCliRequest({
   const onSlidesProgress = (text: string) => {
     if (progressEnabled) {
       spinner.setText(text)
+      const match = text.match(/(\d{1,3})%/)
+      const percent = match ? Number(match[1]) : null
+      if (Number.isFinite(percent) && percent !== null) {
+        oscProgress?.setPercent('Slides', Math.max(0, Math.min(100, percent)))
+      } else {
+        oscProgress?.setIndeterminate('Slides')
+      }
       return
     }
     if (verboseEnabled) {
@@ -167,6 +183,7 @@ export async function handleSlidesCliRequest({
     })
   } finally {
     spinner.stopAndClear()
+    oscProgress?.clear()
   }
 
   if (opts.json) {
