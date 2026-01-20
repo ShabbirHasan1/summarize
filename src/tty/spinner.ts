@@ -1,4 +1,4 @@
-import ora from 'ora'
+import ora, { type Options as OraOptions } from 'ora'
 
 export function startSpinner({
   text,
@@ -9,7 +9,7 @@ export function startSpinner({
   text: string
   enabled: boolean
   stream: NodeJS.WritableStream
-  color?: Parameters<typeof ora>[0]['color']
+  color?: OraOptions['color']
 }): {
   stop: () => void
   clear: () => void
