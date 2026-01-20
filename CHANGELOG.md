@@ -46,6 +46,8 @@
 - Automation: require userScripts (no isolated-world fallback), with improved guidance and in-panel permission notice.
 - Daemon: avoid URL flow crashes when url-preference helpers are missing (ReferenceError guard).
 - CLI: clear OSC progress on SIGINT/SIGTERM to avoid stuck indicators.
+- Slides: require model-provided `Title:` lines for slide headlines (no synthesized fallbacks).
+- YouTube: prefer English caption variants (`en-*`) when selecting caption tracks.
 
 ### Improvements
 
