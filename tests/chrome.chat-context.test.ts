@@ -21,7 +21,7 @@ describe('chrome/chat-context', () => {
 
     expect(content).toContain('Metadata:')
     expect(content).toContain('URL: https://example.com')
-    expect(content).toContain('Title: Example')
+    expect(content).toContain('Page name: Example')
     expect(content).toContain('Source: URL extraction (daemon)')
     expect(content).toContain('Extraction strategy: html')
     expect(content).toContain('URL: https://example.com (duration 2m 00s)')

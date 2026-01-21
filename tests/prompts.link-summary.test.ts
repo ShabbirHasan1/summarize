@@ -24,7 +24,7 @@ describe('buildLinkSummaryPrompt', () => {
     expect(prompt).toContain('<content>')
     expect(prompt).toContain('Write the answer in English.')
     expect(prompt).toContain('Source URL: https://example.com')
-    expect(prompt).toContain('Title: Hello')
+    expect(prompt).toContain('Page name: Hello')
     expect(prompt).toContain('Site: Example')
     expect(prompt).toContain('Page description: Desc')
     expect(prompt).toContain('Extracted content length: 4 characters')

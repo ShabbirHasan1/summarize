@@ -55,7 +55,7 @@ function buildMetadataBlock(metadata?: ChatContextMetadata): string {
     lines.push(`Media duration: ${durationLabel}`)
   }
 
-  if (metadata.title) lines.push(`Title: ${metadata.title}`)
+  if (metadata.title) lines.push(`Page name: ${metadata.title}`)
 
   if (metadata.source) {
     const sourceLabel =
