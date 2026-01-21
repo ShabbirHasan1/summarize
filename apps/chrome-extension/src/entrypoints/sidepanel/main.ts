@@ -604,7 +604,7 @@ function handleSlidesTextModeChange(next: SlideTextMode) {
 
 function applySlidesLayout() {
   const isGallery = slidesLayoutValue === 'gallery'
-  renderMarkdownHostEl.classList.toggle('hidden', isGallery)
+  renderMarkdownHostEl.classList.remove('hidden')
   renderSlidesHostEl.dataset.layout = slidesLayoutValue
   if (isGallery) {
     clearSlideStrip(renderSlidesHostEl)
@@ -1159,7 +1159,7 @@ function selectMarkdownForLayout(markdown: string): string {
   if (!trimmed) return ''
   const { summary, slides } = splitSlidesMarkdown(markdown)
   if (slidesLayoutValue === 'strip') return summary || slides || markdown
-  if (slidesLayoutValue === 'gallery') return slides || ''
+  if (slidesLayoutValue === 'gallery') return summary || slides || markdown
   return markdown
 }
 
