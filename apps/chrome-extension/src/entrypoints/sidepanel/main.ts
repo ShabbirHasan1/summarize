@@ -1610,6 +1610,12 @@ const slidesTestHooks = (
       getSlidesSummaryMarkdown?: () => string
       getSlidesSummaryComplete?: () => boolean
       getSlidesSummaryModel?: () => string | null
+      setSummarizeMode?: (payload: { mode: 'page' | 'video'; slides: boolean }) => Promise<void>
+      getSummarizeMode?: () => { mode: 'page' | 'video'; slides: boolean; mediaAvailable: boolean }
+      getSlidesState?: () => { slidesCount: number; layout: SlidesLayout; hasSlides: boolean }
+      renderSlidesNow?: () => void
+      applyUiState?: (state: UiState) => void
+      forceRenderSlides?: () => void
     }
   }
 ).__summarizeTestHooks
@@ -1629,6 +1635,38 @@ if (slidesTestHooks) {
   slidesTestHooks.getSlidesSummaryMarkdown = () => slidesSummaryMarkdown
   slidesTestHooks.getSlidesSummaryComplete = () => slidesSummaryComplete
   slidesTestHooks.getSlidesSummaryModel = () => slidesSummaryModel
+  slidesTestHooks.setSummarizeMode = async (payload) => {
+    await handleSummarizeControlChange(payload)
+  }
+  slidesTestHooks.getSummarizeMode = () => ({
+    mode: inputModeOverride ?? inputMode,
+    slides: slidesEnabledValue,
+    mediaAvailable,
+  })
+  slidesTestHooks.getSlidesState = () => ({
+    slidesCount: panelState.slides?.slides.length ?? 0,
+    layout: slidesLayoutValue,
+    hasSlides: Boolean(panelState.slides),
+  })
+  slidesTestHooks.renderSlidesNow = () => {
+    queueSlidesRender()
+  }
+  slidesTestHooks.applyUiState = (state) => {
+    panelState.ui = state
+    updateControls(state)
+  }
+  slidesTestHooks.forceRenderSlides = () => {
+    slidesEnabledValue = true
+    inputMode = 'video'
+    inputModeOverride = 'video'
+    if (slidesLayoutValue === 'gallery') {
+      renderSlideGallery(renderSlidesHostEl)
+    } else {
+      slidesLayoutValue = 'strip'
+      renderSlideStrip(renderSlidesHostEl)
+    }
+    return renderSlidesHostEl.children.length
+  }
 }
 
 async function requestSlidesContext() {
@@ -1652,6 +1690,12 @@ function queueSlidesRender() {
   } else {
     queueSlideStripRender()
   }
+}
+
+function shouldRenderSlides() {
+  if (!slidesEnabledValue) return false
+  const effectiveInputMode = inputModeOverride ?? inputMode
+  return effectiveInputMode === 'video'
 }
 
 function queueSlideStripRender() {
@@ -1690,6 +1734,10 @@ function clearSlideGallery(container: HTMLElement) {
 
 function renderSlideStrip(container: HTMLElement) {
   if (slidesLayoutValue !== 'strip') {
+    clearSlideStrip(container)
+    return
+  }
+  if (!shouldRenderSlides()) {
     clearSlideStrip(container)
     return
   }
@@ -1829,6 +1877,10 @@ function renderSlideStrip(container: HTMLElement) {
 
 function renderSlideGallery(container: HTMLElement) {
   if (slidesLayoutValue !== 'gallery') {
+    clearSlideGallery(container)
+    return
+  }
+  if (!shouldRenderSlides()) {
     clearSlideGallery(container)
     return
   }
