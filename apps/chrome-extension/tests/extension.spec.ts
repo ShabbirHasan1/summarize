@@ -1033,6 +1033,7 @@ test('sidepanel refresh free models from advanced settings', async ({
     )
 
     const page = await openExtensionPage(harness, 'sidepanel.html', '#title')
+    await waitForPanelPort(page)
     await page.click('#drawerToggle')
     await expect(page.locator('#drawer')).toBeVisible()
     await sendBgMessage(harness, {
@@ -1509,16 +1510,13 @@ test('sidepanel resumes slides when returning to a tab', async ({
       'data: {}',
       '',
     ].join('\n')
-    await page.route(
-      'http://127.0.0.1:8787/v1/summarize/slides-a/slides/events',
-      async (route) => {
-        await route.fulfill({
-          status: 200,
-          headers: { 'content-type': 'text/event-stream' },
-          body: slidesStreamBody,
-        })
-      }
-    )
+    await page.route('http://127.0.0.1:8787/v1/summarize/slides-a/slides/events', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+        body: slidesStreamBody,
+      })
+    })
     await page.route('http://127.0.0.1:8787/v1/summarize/slides-a/events', async (route) => {
       await route.fulfill({
         status: 200,

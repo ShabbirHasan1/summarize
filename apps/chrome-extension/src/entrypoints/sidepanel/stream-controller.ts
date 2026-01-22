@@ -91,12 +91,19 @@ export function createStreamController(options: StreamControllerOptions): Stream
     }, 80)
   }
 
+  const clearQueuedRender = () => {
+    if (!renderQueued) return
+    window.clearTimeout(renderQueued)
+    renderQueued = 0
+  }
+
   const abort = () => {
     if (!controller) return
     if (activeAbortState) activeAbortState.reason = 'manual'
     controller.abort()
     controller = null
     activeAbortState = null
+    clearQueuedRender()
     if (streaming) {
       streaming = false
       onPhaseChange('idle')

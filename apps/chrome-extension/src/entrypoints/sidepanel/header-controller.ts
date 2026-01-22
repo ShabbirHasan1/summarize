@@ -134,11 +134,7 @@ export function createHeaderController({
       allowStatusWithSubtitle && baseSubtitle && !isError
         ? `${statusLabel} · ${baseSubtitle}`
         : statusLabel
-    const nextSubtitle = isError
-      ? statusLabel
-      : shouldShowStatus
-        ? combinedSubtitle
-        : baseSubtitle
+    const nextSubtitle = isError ? statusLabel : shouldShowStatus ? combinedSubtitle : baseSubtitle
     if (nextSubtitle !== lastSubtitle) {
       subtitleEl.textContent = nextSubtitle
       lastSubtitle = nextSubtitle

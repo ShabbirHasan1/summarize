@@ -3419,7 +3419,7 @@ function updateControls(state: UiState) {
   const preferUrlMode = nextTabUrl ? shouldPreferUrlMode(nextTabUrl) : false
   const tabChanged = nextTabId !== activeTabId
   const urlChanged =
-    !tabChanged && nextTabUrl && activeTabUrl && !urlsMatch(nextTabUrl, activeTabUrl)
+    !tabChanged && nextTabUrl && (!activeTabUrl || !urlsMatch(nextTabUrl, activeTabUrl))
   const nextMediaAvailable =
     Boolean(state.media && (state.media.hasVideo || state.media.hasAudio)) || preferUrlMode
   const nextVideoLabel = state.media?.hasAudio && !state.media.hasVideo ? 'Audio' : 'Video'
