@@ -1794,7 +1794,9 @@ test('sidepanel switches between page, video, and slides modes', async ({
       },
     })
     await waitForRunEvents('run-page')
-    await expect(page.locator('#render')).toContainText('Page summary')
+    await expect
+      .poll(() => getPanelSummaryMarkdown(page), { timeout: 20_000 })
+      .toContain('Page summary')
     await expect(
       page.locator('img.slideStrip__thumbImage, img.slideInline__thumbImage')
     ).toHaveCount(0)
@@ -1816,7 +1818,9 @@ test('sidepanel switches between page, video, and slides modes', async ({
       },
     })
     await waitForRunEvents('run-video')
-    await expect(page.locator('#render')).toContainText('Video summary')
+    await expect
+      .poll(() => getPanelSummaryMarkdown(page), { timeout: 20_000 })
+      .toContain('Video summary')
     await expect(
       page.locator('img.slideStrip__thumbImage, img.slideInline__thumbImage')
     ).toHaveCount(0)
@@ -1838,7 +1842,9 @@ test('sidepanel switches between page, video, and slides modes', async ({
       },
     })
     await waitForRunEvents('run-slides')
-    await expect(page.locator('#render')).toContainText('Slides summary')
+    await expect
+      .poll(() => getPanelSummaryMarkdown(page), { timeout: 20_000 })
+      .toContain('Slides summary')
 
     await page.waitForFunction(
       () => {
