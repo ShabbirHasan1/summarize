@@ -7,6 +7,7 @@ import {
   normalizeCandidate,
   normalizeForPrompt,
   normalizeWhitespace,
+  stripInvisibleUnicode,
 } from '../packages/core/src/content/link-preview/content/cleaner.js'
 
 describe('content cleaner utilities', () => {
@@ -14,6 +15,13 @@ describe('content cleaner utilities', () => {
     const input = `Hello\u00A0\u00A0world\t\t\n\n  next \n\n\n line`
     expect(normalizeForPrompt(input)).toBe('Hello world\nnext\nline')
     expect(normalizeWhitespace(input)).toBe('Hello world\nnext\nline')
+  })
+
+  it('strips invisible unicode characters', () => {
+    const input = `Hello\u200B\u200Cworld\u202E!\uFEFF\u{E0000}`
+    expect(stripInvisibleUnicode(input)).toBe('Helloworld!')
+    expect(normalizeForPrompt(input)).toBe('Helloworld!')
+    expect(normalizeWhitespace(input)).toBe('Helloworld!')
   })
 
   it('decodes common HTML entities', () => {

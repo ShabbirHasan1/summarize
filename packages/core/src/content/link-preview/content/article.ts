@@ -2,11 +2,12 @@ import { load } from 'cheerio'
 import sanitizeHtml from 'sanitize-html'
 
 import { decodeHtmlEntities, normalizeWhitespace } from './cleaner.js'
+import { stripHiddenHtml } from './visibility.js'
 
 const MIN_SEGMENT_LENGTH = 30
 
 export function sanitizeHtmlForMarkdownConversion(html: string): string {
-  return sanitizeHtml(html, {
+  return sanitizeHtml(stripHiddenHtml(html), {
     allowedTags: [
       'article',
       'section',
@@ -60,7 +61,7 @@ export function extractArticleContent(html: string): string {
 }
 
 export function collectSegmentsFromHtml(html: string): string[] {
-  const sanitized = sanitizeHtml(html, {
+  const sanitized = sanitizeHtml(stripHiddenHtml(html), {
     allowedTags: [
       'article',
       'section',
@@ -146,7 +147,7 @@ export function collectSegmentsFromHtml(html: string): string[] {
 }
 
 export function extractPlainText(html: string): string {
-  const stripped = sanitizeHtml(html, {
+  const stripped = sanitizeHtml(stripHiddenHtml(html), {
     allowedTags: [],
     allowedAttributes: {},
     nonTextTags: [

@@ -1,3 +1,5 @@
+import { stripHiddenHtml } from './visibility.js'
+
 export type ReadabilityResult = {
   text: string
   html: string | null
@@ -10,7 +12,7 @@ export async function extractReadabilityFromHtml(
   url?: string
 ): Promise<ReadabilityResult | null> {
   try {
-    const cleanedHtml = stripCssFromHtml(html)
+    const cleanedHtml = stripCssFromHtml(stripHiddenHtml(html))
     const { Readability } = await import('@mozilla/readability')
     const { JSDOM, VirtualConsole } = await import('jsdom')
     const virtualConsole = new VirtualConsole()

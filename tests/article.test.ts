@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   collectSegmentsFromHtml,
   extractArticleContent,
+  extractPlainText,
   sanitizeHtmlForMarkdownConversion,
 } from '../packages/core/src/content/link-preview/content/article.js'
 
@@ -63,5 +64,33 @@ describe('article content extraction', () => {
     expect(sanitized).toContain('href="https://example.com"')
     expect(sanitized).not.toContain('onclick=')
     expect(sanitized).not.toContain('<script')
+  })
+
+  it('strips hidden elements and comments', () => {
+    const html = `
+      <html><body>
+        <p>Visible text here.</p>
+        <div style="display:none">Hidden text</div>
+        <div aria-hidden="true">Also hidden</div>
+        <div style="position:absolute; left:-9999px">Offscreen text</div>
+        <!-- comment with instructions -->
+      </body></html>
+    `
+
+    const content = extractArticleContent(html)
+    expect(content).toContain('Visible text here.')
+    expect(content).not.toContain('Hidden text')
+    expect(content).not.toContain('Also hidden')
+    expect(content).not.toContain('Offscreen text')
+
+    const plain = extractPlainText(html)
+    expect(plain).toContain('Visible text here.')
+    expect(plain).not.toContain('Hidden text')
+    expect(plain).not.toContain('comment with instructions')
+
+    const sanitized = sanitizeHtmlForMarkdownConversion(html)
+    expect(sanitized).toContain('Visible text here.')
+    expect(sanitized).not.toContain('Hidden text')
+    expect(sanitized).not.toContain('Offscreen text')
   })
 })

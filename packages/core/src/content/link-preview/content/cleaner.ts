@@ -10,7 +10,7 @@ export interface ContentBudgetResult {
 }
 
 export function normalizeForPrompt(input: string): string {
-  return input
+  return stripInvisibleUnicode(input)
     .replaceAll('\u00A0', ' ')
     .replaceAll(/[\t ]+/g, ' ')
     .replaceAll(/\s*\n\s*/g, '\n')
@@ -19,7 +19,7 @@ export function normalizeForPrompt(input: string): string {
 }
 
 export function normalizeWhitespace(input: string): string {
-  return input
+  return stripInvisibleUnicode(input)
     .replaceAll('\u00A0', ' ')
     .replaceAll(/[\t ]+/g, ' ')
     .replaceAll(/\s*\n\s*/g, '\n')
@@ -36,6 +36,13 @@ export function decodeHtmlEntities(input: string): string {
     .replaceAll('&#x27;', "'")
     .replaceAll('&#x2F;', '/')
     .replaceAll('&nbsp;', ' ')
+}
+
+export function stripInvisibleUnicode(input: string): string {
+  return input.replaceAll(
+    /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u{E0000}-\u{E007F}]/gu,
+    ''
+  )
 }
 
 export function normalizeCandidate(value: string | null | undefined): string | null {

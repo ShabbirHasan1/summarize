@@ -7,6 +7,7 @@
 - Daemon: resolve symlinked/global bin paths and Windows shims when locating the CLI for install (#62, thanks @entropyy0).
 - CLI: honor --lang for YouTube transcript→Markdown conversion in --markdown-mode llm (#56, thanks @entropyy0).
 - LLM: map Anthropic bare model ids to versioned aliases (claude-sonnet-4 → claude-sonnet-4-0) (#55, thanks @entropyy0).
+- Extraction: strip hidden HTML + invisible Unicode before summarization or extract output (#61).
 
 ## 0.10.0 - 2026-01-22
 
