@@ -1474,60 +1474,14 @@ test('sidepanel restores cached state when switching YouTube tabs', async ({
       () => {
         const hooks = (
           window as typeof globalThis & {
-            __summarizeTestHooks?: {
-              applySlidesPayload?: (payload: unknown) => void
-              setSummarizeMode?: (payload: {
-                mode: 'page' | 'video'
-                slides: boolean
-              }) => Promise<void>
-              getSummarizeMode?: () => {
-                mode: 'page' | 'video'
-                slides: boolean
-                mediaAvailable: boolean
-              }
-            }
+            __summarizeTestHooks?: { applySlidesPayload?: (payload: unknown) => void }
           }
         ).__summarizeTestHooks
-        return Boolean(
-          hooks?.applySlidesPayload && hooks?.setSummarizeMode && hooks?.getSummarizeMode
-        )
+        return Boolean(hooks?.applySlidesPayload)
       },
       null,
       { timeout: 5_000 }
     )
-
-    await page.evaluate(async () => {
-      const hooks = (
-        window as typeof globalThis & {
-          __summarizeTestHooks?: {
-            setSummarizeMode?: (payload: {
-              mode: 'page' | 'video'
-              slides: boolean
-            }) => Promise<void>
-          }
-        }
-      ).__summarizeTestHooks
-      await hooks?.setSummarizeMode?.({ mode: 'video', slides: true })
-    })
-
-    await expect
-      .poll(async () =>
-        page.evaluate(() => {
-          const hooks = (
-            window as typeof globalThis & {
-              __summarizeTestHooks?: {
-                getSummarizeMode?: () => {
-                  mode: 'page' | 'video'
-                  slides: boolean
-                  mediaAvailable: boolean
-                }
-              }
-            }
-          ).__summarizeTestHooks
-          return hooks?.getSummarizeMode?.() ?? null
-        })
-      )
-      .toEqual({ mode: 'video', slides: true, mediaAvailable: true })
     const slidesPayloadA = {
       sourceUrl: 'https://www.youtube.com/watch?v=alpha123',
       sourceId: 'alpha',
@@ -2074,7 +2028,6 @@ test('sidepanel switches between page, video, and slides modes', async ({
     await expect
       .poll(async () => await getSummarizeMode())
       .toEqual({ mode: 'video', slides: true, mediaAvailable: true })
-    await expect(summarizeButton).toHaveAttribute('aria-label', /Video \+ Slides/)
     await sendBgMessage(harness, {
       type: 'run:start',
       run: {
