@@ -77,7 +77,8 @@ export const fetchTranscript = async (
     )
   }
 
-  if (!html) {
+  // In explicit apify mode we can continue without HTML.
+  if (!html && mode !== 'apify') {
     return { text: null, source: null, attemptedProviders }
   }
 
@@ -105,12 +106,13 @@ export const fetchTranscript = async (
     typeof effectiveVideoIdCandidate === 'string' && effectiveVideoIdCandidate.trim().length > 0
       ? effectiveVideoIdCandidate.trim()
       : null
-  if (!effectiveVideoId) {
+  // In explicit apify mode we can continue without a parsed video id.
+  if (!effectiveVideoId && mode !== 'apify') {
     return { text: null, source: null, attemptedProviders }
   }
 
   let durationSeconds = extractYoutubeDurationSeconds(html)
-  if (!durationSeconds) {
+  if (!durationSeconds && effectiveVideoId) {
     durationSeconds = await fetchYoutubeDurationSecondsViaPlayer(options.fetch, {
       html,
       videoId: effectiveVideoId,
