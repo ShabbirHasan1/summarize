@@ -550,8 +550,14 @@ export async function runCli(
       extractMode,
     })
 
-    if (extractMode && inputTarget.kind === 'file' && !isTranscribableExtension(inputTarget.filePath)) {
-      throw new Error('--extract for local files is only supported for media files (MP3, MP4, WAV, etc.)')
+    if (
+      extractMode &&
+      inputTarget.kind === 'file' &&
+      !isTranscribableExtension(inputTarget.filePath)
+    ) {
+      throw new Error(
+        '--extract for local files is only supported for media files (MP3, MP4, WAV, etc.)'
+      )
     }
 
     // Progress UI (spinner + OSC progress) is shown on stderr. Before writing to stdout (including
