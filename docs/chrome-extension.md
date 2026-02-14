@@ -38,6 +38,10 @@ Dev (repo checkout):
 - “Daemon not reachable”:
   - `summarize daemon status`
   - Logs: `~/.summarize/logs/daemon.err.log`
+- macOS `launchctl bootstrap` errors (`Input/output error`, `Domain does not support specified action`):
+  - `summarize daemon install` now tries both launchd domains (`gui/<uid>` then `user/<uid>`).
+  - Install as your normal user (not root) so HOME + launchd domain match.
+  - Re-run: `summarize daemon install --token <TOKEN>`.
 - “Need extension-side traces”:
   - Options → Logs → `extension.log` (panel/background events).
   - Enable “Extended logging” in Advanced settings for full pipeline traces.

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 
 import { describe, expect, it } from 'vitest'
 
+import type { CliProvider } from '../src/config.js'
 import { isCliDisabled, resolveCliBinary, runCliModel } from '../src/llm/cli.js'
 import type { ExecFileFn } from '../src/markitdown.js'
 
@@ -94,6 +95,8 @@ describe('runCliModel', () => {
       totalTokens: 12,
     })
     expect(seen[0]?.includes('--yolo')).toBe(true)
+    expect(seen[0]?.includes('--prompt')).toBe(true)
+    expect(seen[0]?.includes('Test')).toBe(true)
   })
 
   it('sets GEMINI_CLI_NO_RELAUNCH by default for Gemini', async () => {
@@ -144,6 +147,75 @@ describe('runCliModel', () => {
     expect(result.text).toBe('ok')
     expect(seen[0]).toContain('--foo')
     expect(seen[0]).toContain('--bar')
+  })
+
+  it('adds Agent provider extra args', async () => {
+    const seen: string[][] = []
+    const execFileImpl = makeStub((args) => {
+      seen.push(args)
+      return { stdout: JSON.stringify({ result: 'ok' }) }
+    })
+    const result = await runCliModel({
+      provider: 'agent',
+      prompt: 'Test',
+      model: 'gpt-5.2',
+      allowTools: false,
+      timeoutMs: 1000,
+      env: {},
+      execFileImpl,
+      config: { agent: { extraArgs: ['--header', 'x-test: 1'] } },
+    })
+    expect(result.text).toBe('ok')
+    expect(seen[0]).toContain('--header')
+    expect(seen[0]).toContain('x-test: 1')
+  })
+
+  it('handles Agent CLI JSON output in ask mode', async () => {
+    const seen: string[][] = []
+    const execFileImpl = makeStub((args) => {
+      seen.push(args)
+      return { stdout: JSON.stringify({ result: 'ok' }) }
+    })
+    const result = await runCliModel({
+      provider: 'agent',
+      prompt: 'Test',
+      model: 'gpt-5.2',
+      allowTools: false,
+      timeoutMs: 1000,
+      env: {},
+      execFileImpl,
+      config: null,
+    })
+    expect(result.text).toBe('ok')
+    expect(seen[0]).toContain('--print')
+    expect(seen[0]).toContain('--output-format')
+    expect(seen[0]).toContain('json')
+    expect(seen[0]).toContain('--mode')
+    expect(seen[0]).toContain('ask')
+    expect(seen[0]).toContain('--model')
+    expect(seen[0]).toContain('gpt-5.2')
+    expect(seen[0]?.[seen[0].length - 1]).toBe('Test')
+  })
+
+  it('accepts common JSON output fields across JSON CLI providers', async () => {
+    const providers: Array<{ provider: CliProvider; model: string }> = [
+      { provider: 'claude', model: 'sonnet' },
+      { provider: 'gemini', model: 'gemini-3-flash-preview' },
+      { provider: 'agent', model: 'gpt-5.2' },
+    ]
+    for (const { provider, model } of providers) {
+      const result = await runCliModel({
+        provider,
+        prompt: 'Test',
+        model,
+        allowTools: false,
+        timeoutMs: 1000,
+        env: {},
+        execFileImpl: makeStub(() => ({ stdout: JSON.stringify({ message: 'ok' }) })),
+        config: null,
+      })
+      expect(result.text).toBe('ok')
+    }
   })
 
   it('reads the Codex output file', async () => {
@@ -324,6 +396,7 @@ describe('cli helpers', () => {
     expect(resolveCliBinary('codex', null, { SUMMARIZE_CLI_CODEX: '/opt/codex' })).toBe(
       '/opt/codex'
     )
+    expect(resolveCliBinary('agent', null, { AGENT_PATH: '/opt/agent' })).toBe('/opt/agent')
     expect(resolveCliBinary('gemini', null, {})).toBe('gemini')
   })
 })

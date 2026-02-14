@@ -49,6 +49,8 @@ const createContext = (overrides: Partial<Parameters<typeof summarizeAsset>[0]> 
     lengthInstruction: null,
     languageInstruction: null,
     isFallbackModel: true,
+    isImplicitAutoSelection: true,
+    allowAutoCliFallback: false,
     desiredOutputTokens: null,
     envForAuto: {},
     configForModelSelection: null,

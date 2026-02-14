@@ -26,6 +26,8 @@ describe('chrome/daemon-payload', () => {
       model: 'auto',
       length: 'xl',
       language: 'auto',
+      autoCliFallback: true,
+      autoCliOrder: 'claude,gemini,codex,agent',
       maxCharacters: defaultSettings.maxChars,
     })
   })
@@ -68,6 +70,8 @@ describe('chrome/daemon-payload', () => {
       timeout: '90s',
       retries: 2,
       maxOutputTokens: '2k',
+      autoCliFallback: true,
+      autoCliOrder: 'claude,gemini,codex,agent',
       maxCharacters: defaultSettings.maxChars,
     })
   })
@@ -117,6 +121,25 @@ describe('chrome/daemon-payload', () => {
     })
 
     expect(body.timestamps).toBe(true)
+  })
+
+  it('includes auto CLI fallback settings', () => {
+    const body = buildDaemonRequestBody({
+      extracted: {
+        url: 'https://example.com/article',
+        title: 'Hello',
+        text: 'Content',
+        truncated: false,
+      },
+      settings: {
+        ...defaultSettings,
+        autoCliFallback: false,
+        autoCliOrder: 'gemini,claude',
+      },
+    })
+
+    expect(body.autoCliFallback).toBe(false)
+    expect(body.autoCliOrder).toBe('gemini,claude')
   })
 
   it('requests slides when enabled', () => {

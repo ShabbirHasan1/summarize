@@ -32,6 +32,10 @@ import {
   ensureCliAttachmentPath,
   isUnsupportedAttachmentError,
 } from '../../attachments.js'
+import {
+  readLastSuccessfulCliProvider,
+  writeLastSuccessfulCliProvider,
+} from '../../cli-fallback-state.js'
 import { parseCliUserModelId } from '../../env.js'
 import { writeFinishLine } from '../../finish-line.js'
 import { resolveTargetCharacters } from '../../format.js'
@@ -225,6 +229,8 @@ export type AssetSummaryContext = {
   lengthInstruction?: string | null
   languageInstruction?: string | null
   isFallbackModel: boolean
+  isImplicitAutoSelection: boolean
+  allowAutoCliFallback: boolean
   desiredOutputTokens: number | null
   envForAuto: Record<string, string | undefined>
   configForModelSelection: SummarizeConfig | null
@@ -285,6 +291,10 @@ export type SummarizeAssetArgs = {
 }
 
 export async function summarizeAsset(ctx: AssetSummaryContext, args: SummarizeAssetArgs) {
+  const lastSuccessfulCliProvider = ctx.isFallbackModel
+    ? await readLastSuccessfulCliProvider(ctx.envForRun)
+    : null
+
   const { promptText, attachments, assetFooterParts, textContent } = await prepareAssetPrompt({
     ctx: {
       env: ctx.env,
@@ -371,6 +381,9 @@ export async function summarizeAsset(ctx: AssetSummaryContext, args: SummarizeAs
         catalog,
         openrouterProvidersFromEnv: null,
         cliAvailability: ctx.cliAvailability,
+        isImplicitAutoSelection: ctx.isImplicitAutoSelection,
+        allowAutoCliFallback: ctx.allowAutoCliFallback,
+        lastSuccessfulCliProvider,
       })
       const mapped: ModelAttempt[] = all.map((attempt) => {
         if (attempt.transport !== 'cli')
@@ -607,6 +620,17 @@ export async function summarizeAsset(ctx: AssetSummaryContext, args: SummarizeAs
     })
     cacheStore.setText('summary', key, summaryResult.summary, ctx.cache.ttlMs)
     writeVerbose(ctx.stderr, ctx.verbose, 'cache write summary', ctx.verboseColor, ctx.envForRun)
+  }
+  if (
+    !summaryFromCache &&
+    ctx.isFallbackModel &&
+    usedAttempt.transport === 'cli' &&
+    usedAttempt.cliProvider
+  ) {
+    await writeLastSuccessfulCliProvider({
+      env: ctx.envForRun,
+      provider: usedAttempt.cliProvider,
+    })
   }
 
   const { summary, summaryAlreadyPrinted, modelMeta, maxOutputTokensForCall } = summaryResult

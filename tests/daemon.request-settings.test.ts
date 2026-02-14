@@ -67,4 +67,25 @@ describe('run/run-settings overrides', () => {
     const invalid = resolveRunOverrides({ transcriber: 'gpt-4o' })
     expect(invalid.transcriber).toBeNull()
   })
+
+  it('parses auto CLI fallback overrides', () => {
+    const overrides = resolveRunOverrides({
+      autoCliFallback: 'true',
+      autoCliOrder: 'claude, gemini codex',
+    })
+    expect(overrides.autoCliFallbackEnabled).toBe(true)
+    expect(overrides.autoCliOrder).toEqual(['claude', 'gemini', 'codex'])
+
+    const invalid = resolveRunOverrides({ autoCliOrder: 'claude,bad-provider' })
+    expect(invalid.autoCliOrder).toBeNull()
+  })
+
+  it('ignores deprecated auto CLI remember overrides', () => {
+    const overrides = resolveRunOverrides({
+      autoCliRememberLastSuccess: 'off',
+      magicCliRememberLastSuccess: 'off',
+    })
+    expect(overrides.autoCliFallbackEnabled).toBeNull()
+    expect(overrides.autoCliOrder).toBeNull()
+  })
 })

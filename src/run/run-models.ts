@@ -8,6 +8,7 @@ export type ModelSelection = {
   requestedModelInput: string
   requestedModelLabel: string
   isNamedModelSelection: boolean
+  isImplicitAutoSelection: boolean
   wantsFreeNamedModel: boolean
   configForModelSelection: SummarizeConfig | null
   isFallbackModel: boolean
@@ -41,29 +42,34 @@ export function resolveModelSelection({
     return out
   })()
 
-  const resolvedDefaultModel = (() => {
+  const defaultModelResolution = (() => {
     if (
       typeof envForRun.SUMMARIZE_MODEL === 'string' &&
       envForRun.SUMMARIZE_MODEL.trim().length > 0
     ) {
-      return envForRun.SUMMARIZE_MODEL.trim()
+      return { value: envForRun.SUMMARIZE_MODEL.trim(), source: 'env' as const }
     }
     const modelFromConfig = config?.model
     if (modelFromConfig) {
       if ('id' in modelFromConfig && typeof modelFromConfig.id === 'string') {
         const id = modelFromConfig.id.trim()
-        if (id.length > 0) return id
+        if (id.length > 0) return { value: id, source: 'config' as const }
       }
       if ('name' in modelFromConfig && typeof modelFromConfig.name === 'string') {
         const name = modelFromConfig.name.trim()
-        if (name.length > 0) return name
+        if (name.length > 0) return { value: name, source: 'config' as const }
       }
-      if ('mode' in modelFromConfig && modelFromConfig.mode === 'auto') return 'auto'
+      if ('mode' in modelFromConfig && modelFromConfig.mode === 'auto') {
+        return { value: 'auto', source: 'config' as const }
+      }
     }
-    return 'auto'
+    return { value: 'auto', source: 'default' as const }
   })()
 
-  const requestedModelInput = ((explicitModelArg?.trim() ?? '') || resolvedDefaultModel).trim()
+  const explicitModelInput = explicitModelArg?.trim() ?? ''
+  const requestedModelInput = (explicitModelInput || defaultModelResolution.value).trim()
+  const requestedModelSource =
+    explicitModelInput.length > 0 ? ('explicit' as const) : defaultModelResolution.source
   const requestedModelInputLower = requestedModelInput.toLowerCase()
   const wantsFreeNamedModel = requestedModelInputLower === 'free'
 
@@ -102,12 +108,15 @@ export function resolveModelSelection({
       : requestedModel.userModelId
 
   const isFallbackModel = requestedModel.kind === 'auto'
+  const isImplicitAutoSelection =
+    requestedModel.kind === 'auto' && requestedModelSource === 'default'
 
   return {
     requestedModel,
     requestedModelInput,
     requestedModelLabel,
     isNamedModelSelection,
+    isImplicitAutoSelection,
     wantsFreeNamedModel,
     configForModelSelection,
     isFallbackModel,

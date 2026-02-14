@@ -7,7 +7,8 @@ read_when:
 # LLM / summarization mode
 
 By default `summarize` will call an LLM using **direct provider API keys**. When CLI tools are
-installed, auto mode can use local CLI models when `cli.enabled` is set (see `docs/cli.md`).
+installed, auto mode can use local CLI models via `cli.enabled` or implicit auto CLI fallback
+(`cli.autoFallback`; see `docs/cli.md`).
 
 ## Defaults
 
@@ -31,7 +32,7 @@ installed, auto mode can use local CLI models when `cli.enabled` is set (see `do
 - `ANTHROPIC_API_KEY` (required for `anthropic/...` models)
 - `ANTHROPIC_BASE_URL` (optional; override Anthropic API endpoint)
 - `SUMMARIZE_MODEL` (optional; overrides default model selection)
-- `CLAUDE_PATH` / `CODEX_PATH` / `GEMINI_PATH` (optional; override CLI binary paths)
+- `CLAUDE_PATH` / `CODEX_PATH` / `GEMINI_PATH` / `AGENT_PATH` (optional; override CLI binary paths)
 
 ## Flags
 
@@ -40,6 +41,7 @@ installed, auto mode can use local CLI models when `cli.enabled` is set (see `do
     - `cli/codex/gpt-5.2`
     - `cli/claude/sonnet`
     - `cli/gemini/gemini-3-flash-preview`
+    - `cli/agent/gpt-5.2`
     - `google/gemini-3-flash-preview`
     - `openai/gpt-5-mini`
     - `zai/glm-4.7`
@@ -48,7 +50,7 @@ installed, auto mode can use local CLI models when `cli.enabled` is set (see `do
     - `anthropic/claude-sonnet-4-5`
     - `openrouter/meta-llama/llama-3.3-70b-instruct:free` (force OpenRouter)
 - `--cli [provider]`
-  - Examples: `--cli claude`, `--cli Gemini`, `--cli codex` (equivalent to `--model cli/<provider>`); `--cli` alone uses auto selection with CLI enabled.
+  - Examples: `--cli claude`, `--cli Gemini`, `--cli codex`, `--cli agent` (equivalent to `--model cli/<provider>`); `--cli` alone uses auto selection with CLI enabled.
 - `--model auto`
   - See `docs/model-auto.md`
 - `--model <preset>`

@@ -734,6 +734,10 @@ export async function runDaemonServer({
           timeout: obj.timeout,
           retries: obj.retries,
           maxOutputTokens: obj.maxOutputTokens,
+          autoCliFallback: obj.autoCliFallback,
+          autoCliOrder: obj.autoCliOrder,
+          magicCliAuto: obj.magicCliAuto,
+          magicCliOrder: obj.magicCliOrder,
         })
         const slidesSettings = resolveSlidesSettings({ env, request: obj })
         const diagnostics = parseDiagnostics(obj.diagnostics)

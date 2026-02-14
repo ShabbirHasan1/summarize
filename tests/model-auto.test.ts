@@ -422,4 +422,86 @@ describe('auto model selection', () => {
 
     expect(attempts[0]?.userModelId).toBe('cli/claude/sonnet')
   })
+
+  it('prepends auto CLI fallback candidates for implicit auto when no API keys are set', () => {
+    const config: SummarizeConfig = {
+      model: { mode: 'auto', rules: [{ candidates: ['openai/gpt-5-mini'] }] },
+    }
+    const attempts = buildAutoModelAttempts({
+      kind: 'text',
+      promptTokens: 100,
+      desiredOutputTokens: 50,
+      requiresVideoUnderstanding: false,
+      env: {},
+      config,
+      catalog: null,
+      openrouterProvidersFromEnv: null,
+      cliAvailability: { claude: true },
+      isImplicitAutoSelection: true,
+    })
+
+    expect(attempts[0]?.userModelId).toBe('cli/claude/sonnet')
+  })
+
+  it('does not prepend auto CLI fallback candidates for explicit --model auto', () => {
+    const config: SummarizeConfig = {
+      model: { mode: 'auto', rules: [{ candidates: ['openai/gpt-5-mini'] }] },
+    }
+    const attempts = buildAutoModelAttempts({
+      kind: 'text',
+      promptTokens: 100,
+      desiredOutputTokens: 50,
+      requiresVideoUnderstanding: false,
+      env: {},
+      config,
+      catalog: null,
+      openrouterProvidersFromEnv: null,
+      cliAvailability: { claude: true },
+      isImplicitAutoSelection: false,
+    })
+
+    expect(attempts[0]?.userModelId).toBe('openai/gpt-5-mini')
+  })
+
+  it('does not prepend auto CLI fallback candidates when API keys are present', () => {
+    const config: SummarizeConfig = {
+      model: { mode: 'auto', rules: [{ candidates: ['openai/gpt-5-mini'] }] },
+    }
+    const attempts = buildAutoModelAttempts({
+      kind: 'text',
+      promptTokens: 100,
+      desiredOutputTokens: 50,
+      requiresVideoUnderstanding: false,
+      env: { OPENAI_API_KEY: 'test' },
+      config,
+      catalog: null,
+      openrouterProvidersFromEnv: null,
+      cliAvailability: { claude: true },
+      isImplicitAutoSelection: true,
+    })
+
+    expect(attempts[0]?.userModelId).toBe('openai/gpt-5-mini')
+  })
+
+  it('prioritizes last successful CLI provider in auto CLI fallback mode', () => {
+    const config: SummarizeConfig = {
+      model: { mode: 'auto', rules: [{ candidates: ['openai/gpt-5-mini'] }] },
+    }
+    const attempts = buildAutoModelAttempts({
+      kind: 'text',
+      promptTokens: 100,
+      desiredOutputTokens: 50,
+      requiresVideoUnderstanding: false,
+      env: {},
+      config,
+      catalog: null,
+      openrouterProvidersFromEnv: null,
+      cliAvailability: { claude: true, gemini: true },
+      isImplicitAutoSelection: true,
+      lastSuccessfulCliProvider: 'gemini',
+    })
+
+    expect(attempts[0]?.userModelId).toBe('cli/gemini/gemini-3-flash-preview')
+    expect(attempts[1]?.userModelId).toBe('cli/claude/sonnet')
+  })
 })

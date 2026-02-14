@@ -64,6 +64,8 @@ const summaryTimestampsToggleRoot = byId<HTMLDivElement>('summaryTimestampsToggl
 const slidesParallelToggleRoot = byId<HTMLDivElement>('slidesParallelToggle')
 const slidesOcrToggleRoot = byId<HTMLDivElement>('slidesOcrToggle')
 const extendedLoggingToggleRoot = byId<HTMLDivElement>('extendedLoggingToggle')
+const autoCliFallbackToggleRoot = byId<HTMLDivElement>('autoCliFallbackToggle')
+const autoCliOrderEl = byId<HTMLInputElement>('autoCliOrder')
 const requestModeEl = byId<HTMLSelectElement>('requestMode')
 const firecrawlModeEl = byId<HTMLSelectElement>('firecrawlMode')
 const markdownModeEl = byId<HTMLSelectElement>('markdownMode')
@@ -113,6 +115,7 @@ let summaryTimestampsValue = defaultSettings.summaryTimestamps
 let slidesParallelValue = defaultSettings.slidesParallel
 let slidesOcrEnabledValue = defaultSettings.slidesOcrEnabled
 let extendedLoggingValue = defaultSettings.extendedLogging
+let autoCliFallbackValue = defaultSettings.autoCliFallback
 
 let skillsCache: Skill[] = []
 let skillsFiltered: Skill[] = []
@@ -288,6 +291,8 @@ const saveNow = async () => {
       slidesLayout: current.slidesLayout,
       summaryTimestamps: summaryTimestampsValue,
       extendedLogging: extendedLoggingValue,
+      autoCliFallback: autoCliFallbackValue,
+      autoCliOrder: autoCliOrderEl.value || defaultSettings.autoCliOrder,
       maxChars: Number(maxCharsEl.value) || defaultSettings.maxChars,
       requestMode: requestModeEl.value || defaultSettings.requestMode,
       firecrawlMode: firecrawlModeEl.value || defaultSettings.firecrawlMode,
@@ -472,6 +477,10 @@ function setModelPlaceholderFromDiscovery(discovery: {
     if (p.google === true) hints.push('google/…')
     if (p.xai === true) hints.push('xai/…')
     if (p.zai === true) hints.push('zai/…')
+    if (p.cliClaude === true) hints.push('cli/claude')
+    if (p.cliGemini === true) hints.push('cli/gemini')
+    if (p.cliCodex === true) hints.push('cli/codex')
+    if (p.cliAgent === true) hints.push('cli/agent')
   }
   if (discovery.localModelsSource && typeof discovery.localModelsSource === 'object') {
     hints.push('local: openai/<id>')
@@ -1220,6 +1229,26 @@ const extendedLoggingToggle = mountCheckbox(extendedLoggingToggleRoot, {
   onCheckedChange: handleExtendedLoggingToggleChange,
 })
 
+const updateAutoCliFallbackToggle = () => {
+  autoCliFallbackToggle.update({
+    id: 'options-auto-cli-fallback',
+    label: 'Auto CLI fallback for Auto model',
+    checked: autoCliFallbackValue,
+    onCheckedChange: handleAutoCliFallbackToggleChange,
+  })
+}
+const handleAutoCliFallbackToggleChange = (checked: boolean) => {
+  autoCliFallbackValue = checked
+  updateAutoCliFallbackToggle()
+  scheduleAutoSave(0)
+}
+const autoCliFallbackToggle = mountCheckbox(autoCliFallbackToggleRoot, {
+  id: 'options-auto-cli-fallback',
+  label: 'Auto CLI fallback for Auto model',
+  checked: autoCliFallbackValue,
+  onCheckedChange: handleAutoCliFallbackToggleChange,
+})
+
 async function load() {
   const s = await loadSettings()
   tokenEl.value = s.token
@@ -1242,6 +1271,7 @@ async function load() {
   slidesParallelValue = s.slidesParallel
   slidesOcrEnabledValue = s.slidesOcrEnabled
   extendedLoggingValue = s.extendedLogging
+  autoCliFallbackValue = s.autoCliFallback
   updateAutoToggle()
   updateChatToggle()
   updateAutomationToggle()
@@ -1250,6 +1280,8 @@ async function load() {
   updateSlidesParallelToggle()
   updateSlidesOcrToggle()
   updateExtendedLoggingToggle()
+  updateAutoCliFallbackToggle()
+  autoCliOrderEl.value = s.autoCliOrder
   maxCharsEl.value = String(s.maxChars)
   requestModeEl.value = s.requestMode
   firecrawlModeEl.value = s.firecrawlMode
@@ -1396,6 +1428,10 @@ retriesEl.addEventListener('input', () => {
 })
 
 maxOutputTokensEl.addEventListener('input', () => {
+  scheduleAutoSave(300)
+})
+
+autoCliOrderEl.addEventListener('input', () => {
   scheduleAutoSave(300)
 })
 

@@ -19,6 +19,10 @@ import {
   SUMMARY_LENGTH_TARGET_CHARACTERS,
   SUMMARY_SYSTEM_PROMPT,
 } from '../../../prompts/index.js'
+import {
+  readLastSuccessfulCliProvider,
+  writeLastSuccessfulCliProvider,
+} from '../../cli-fallback-state.js'
 import { parseCliUserModelId } from '../../env.js'
 import {
   buildExtractFinishLabel,
@@ -611,6 +615,9 @@ export async function summarizeExtractedUrl({
   slidesOutput?: SlidesTerminalOutput | null
 }) {
   const { io, flags, model, cache: cacheState, hooks } = ctx
+  const lastSuccessfulCliProvider = model.isFallbackModel
+    ? await readLastSuccessfulCliProvider(io.envForRun)
+    : null
 
   const promptPayload: Prompt = { system: SUMMARY_SYSTEM_PROMPT, userText: prompt }
   const promptTokens = countTokens(promptPayload.userText)
@@ -629,6 +636,9 @@ export async function summarizeExtractedUrl({
         catalog,
         openrouterProvidersFromEnv: null,
         cliAvailability: model.cliAvailability,
+        isImplicitAutoSelection: model.isImplicitAutoSelection,
+        allowAutoCliFallback: model.allowAutoCliFallback,
+        lastSuccessfulCliProvider,
       })
       if (flags.verbose) {
         for (const attempt of list.slice(0, 8)) {
@@ -875,6 +885,17 @@ export async function summarizeExtractedUrl({
     })
     cacheStore.setText('summary', key, summaryResult.summary, cacheState.ttlMs)
     writeVerbose(io.stderr, flags.verbose, 'cache write summary', flags.verboseColor, io.envForRun)
+  }
+  if (
+    !summaryFromCache &&
+    model.isFallbackModel &&
+    usedAttempt.transport === 'cli' &&
+    usedAttempt.cliProvider
+  ) {
+    await writeLastSuccessfulCliProvider({
+      env: io.envForRun,
+      provider: usedAttempt.cliProvider,
+    })
   }
 
   const { summary, summaryAlreadyPrinted, modelMeta, maxOutputTokensForCall } = summaryResult

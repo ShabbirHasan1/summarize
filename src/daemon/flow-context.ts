@@ -1,6 +1,7 @@
 import { Writable } from 'node:stream'
 
 import type { CacheState } from '../cache.js'
+import type { SummarizeConfig } from '../config.js'
 import type {
   ExtractedLinkContent,
   LinkPreviewProgressEvent,
@@ -39,6 +40,30 @@ function createWritableFromTextSink(sink: TextSink): NodeJS.WritableStream {
   })
   ;(stream as unknown as { isTTY?: boolean }).isTTY = false
   return stream
+}
+
+function applyAutoCliFallbackOverrides(
+  config: SummarizeConfig | null,
+  overrides: RunOverrides
+): SummarizeConfig | null {
+  const hasOverride = overrides.autoCliFallbackEnabled !== null || overrides.autoCliOrder !== null
+  if (!hasOverride) return config
+  const current = config ?? {}
+  const currentCli = current.cli ?? {}
+  const currentAutoFallback = currentCli.autoFallback ?? currentCli.magicAuto ?? {}
+  return {
+    ...current,
+    cli: {
+      ...currentCli,
+      autoFallback: {
+        ...currentAutoFallback,
+        ...(typeof overrides.autoCliFallbackEnabled === 'boolean'
+          ? { enabled: overrides.autoCliFallbackEnabled }
+          : {}),
+        ...(Array.isArray(overrides.autoCliOrder) ? { order: overrides.autoCliOrder } : {}),
+      },
+    },
+  }
 }
 
 export type DaemonUrlFlowContextArgs = {
@@ -119,6 +144,8 @@ export function createDaemonUrlFlowContext(args: DaemonUrlFlowContextArgs): UrlF
     retries: null,
     maxOutputTokensArg: null,
     transcriber: null,
+    autoCliFallbackEnabled: null,
+    autoCliOrder: null,
   }
   if (resolvedOverrides.transcriber) {
     envForRun.SUMMARIZE_TRANSCRIBER = resolvedOverrides.transcriber
@@ -166,18 +193,21 @@ export function createDaemonUrlFlowContext(args: DaemonUrlFlowContextArgs): UrlF
     cliFlagPresent: false,
     cliProviderArg: null,
   })
+  const configForCliWithMagic = applyAutoCliFallbackOverrides(configForCli, resolvedOverrides)
+  const allowAutoCliFallback = resolvedOverrides.autoCliFallbackEnabled === true
 
   const {
     requestedModel,
     requestedModelInput,
     requestedModelLabel,
     isNamedModelSelection,
+    isImplicitAutoSelection,
     wantsFreeNamedModel,
     configForModelSelection,
     isFallbackModel,
   } = resolveModelSelection({
     config,
-    configForCli,
+    configForCli: configForCliWithMagic,
     configPath,
     envForRun,
     explicitModelArg: modelOverride?.trim() ? modelOverride.trim() : null,
@@ -275,6 +305,8 @@ export function createDaemonUrlFlowContext(args: DaemonUrlFlowContextArgs): UrlF
     lengthInstruction,
     languageInstruction,
     isFallbackModel,
+    isImplicitAutoSelection,
+    allowAutoCliFallback,
     desiredOutputTokens,
     envForAuto,
     configForModelSelection,
@@ -371,6 +403,8 @@ export function createDaemonUrlFlowContext(args: DaemonUrlFlowContextArgs): UrlF
       requestedModelLabel,
       fixedModelSpec,
       isFallbackModel,
+      isImplicitAutoSelection,
+      allowAutoCliFallback,
       isNamedModelSelection,
       wantsFreeNamedModel,
       desiredOutputTokens,

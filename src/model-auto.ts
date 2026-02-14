@@ -1,5 +1,11 @@
 import * as piAi from '@mariozechner/pi-ai'
-import type { AutoRule, AutoRuleKind, CliProvider, SummarizeConfig } from './config.js'
+import type {
+  AutoRule,
+  AutoRuleKind,
+  CliAutoFallbackConfig,
+  CliProvider,
+  SummarizeConfig,
+} from './config.js'
 import { normalizeGatewayStyleModelId, parseGatewayStyleModelId } from './llm/model-id.js'
 import type { LiteLlmCatalog } from './pricing/litellm.js'
 import {
@@ -18,6 +24,9 @@ export type AutoSelectionInput = {
   openrouterProvidersFromEnv: string[] | null
   openrouterModelIds?: string[] | null
   cliAvailability?: Partial<Record<CliProvider, boolean>>
+  isImplicitAutoSelection?: boolean
+  allowAutoCliFallback?: boolean
+  lastSuccessfulCliProvider?: CliProvider | null
 }
 
 export type AutoModelAttempt = {
@@ -36,6 +45,7 @@ export type AutoModelAttempt = {
     | 'CLI_CLAUDE'
     | 'CLI_CODEX'
     | 'CLI_GEMINI'
+    | 'CLI_AGENT'
   debug: string
 }
 
@@ -197,6 +207,63 @@ const DEFAULT_CLI_MODELS: Record<CliProvider, string> = {
   claude: 'sonnet',
   codex: 'gpt-5.2',
   gemini: 'gemini-3-flash-preview',
+  agent: 'gpt-5.2',
+}
+
+const DEFAULT_AUTO_CLI_ORDER: CliProvider[] = ['claude', 'gemini', 'codex', 'agent']
+
+export type ResolvedCliAutoFallbackConfig = {
+  enabled: boolean
+  onlyWhenNoApiKeys: boolean
+  order: CliProvider[]
+}
+
+function dedupeCliProviderOrder(order: CliProvider[]): CliProvider[] {
+  const out: CliProvider[] = []
+  for (const provider of order) {
+    if (!out.includes(provider)) out.push(provider)
+  }
+  return out
+}
+
+export function resolveCliAutoFallbackConfig(
+  config: SummarizeConfig | null
+): ResolvedCliAutoFallbackConfig {
+  const raw = (config?.cli?.autoFallback ??
+    config?.cli?.magicAuto ??
+    null) as CliAutoFallbackConfig | null
+  const order =
+    Array.isArray(raw?.order) && raw.order.length > 0 ? raw.order : DEFAULT_AUTO_CLI_ORDER
+  return {
+    enabled: typeof raw?.enabled === 'boolean' ? raw.enabled : true,
+    onlyWhenNoApiKeys: typeof raw?.onlyWhenNoApiKeys === 'boolean' ? raw.onlyWhenNoApiKeys : true,
+    order: dedupeCliProviderOrder(order),
+  }
+}
+
+function hasAnyApiKeysConfigured(env: Record<string, string | undefined>): boolean {
+  const has = (value: string | undefined) => typeof value === 'string' && value.trim().length > 0
+  return Boolean(
+    has(env.OPENAI_API_KEY) ||
+      has(env.GEMINI_API_KEY) ||
+      has(env.GOOGLE_GENERATIVE_AI_API_KEY) ||
+      has(env.GOOGLE_API_KEY) ||
+      has(env.ANTHROPIC_API_KEY) ||
+      has(env.XAI_API_KEY) ||
+      has(env.OPENROUTER_API_KEY) ||
+      has(env.Z_AI_API_KEY) ||
+      has(env.ZAI_API_KEY)
+  )
+}
+
+function prioritizeCliProvider(
+  providers: CliProvider[],
+  preferred: CliProvider | null | undefined
+): CliProvider[] {
+  if (!preferred) return providers
+  const idx = providers.indexOf(preferred)
+  if (idx <= 0) return providers
+  return [preferred, ...providers.slice(0, idx), ...providers.slice(idx + 1)]
 }
 
 function isCliProviderEnabled(provider: CliProvider, config: SummarizeConfig | null): boolean {
@@ -223,7 +290,13 @@ function parseCliCandidate(
     .map((entry) => entry.trim())
   if (parts.length < 2) return null
   const provider = parts[1]?.toLowerCase()
-  if (provider !== 'claude' && provider !== 'codex' && provider !== 'gemini') return null
+  if (
+    provider !== 'claude' &&
+    provider !== 'codex' &&
+    provider !== 'gemini' &&
+    provider !== 'agent'
+  )
+    return null
   const model = parts.slice(2).join('/').trim()
   return { provider, model: model.length > 0 ? model : null }
 }
@@ -243,7 +316,9 @@ function requiredEnvForCandidate(modelId: string): AutoModelAttempt['requiredEnv
       ? 'CLI_CODEX'
       : parsed.provider === 'gemini'
         ? 'CLI_GEMINI'
-        : 'CLI_CLAUDE'
+        : parsed.provider === 'agent'
+          ? 'CLI_AGENT'
+          : 'CLI_CLAUDE'
   }
   if (isCandidateOpenRouter(modelId)) return 'OPENROUTER_API_KEY'
   const parsed = parseGatewayStyleModelId(normalizeGatewayStyleModelId(modelId))
@@ -342,30 +417,52 @@ function resolveRuleCandidates({
 function prependCliCandidates({
   candidates,
   config,
+  env,
+  isImplicitAutoSelection,
+  allowAutoCliFallback,
+  lastSuccessfulCliProvider,
 }: {
   candidates: string[]
   config: SummarizeConfig | null
+  env: Record<string, string | undefined>
+  isImplicitAutoSelection: boolean
+  allowAutoCliFallback: boolean
+  lastSuccessfulCliProvider: CliProvider | null
 }): string[] {
   const cli = config?.cli
-  if (!Array.isArray(cli?.enabled) || cli.enabled.length === 0) return candidates
+  const autoFallback = resolveCliAutoFallbackConfig(config)
+  const hasExplicitEnabledList = Array.isArray(cli?.enabled)
+  const enabledOrder: CliProvider[] = (() => {
+    if (hasExplicitEnabledList) return cli?.enabled ?? []
+    const shouldUseAutoFallback =
+      autoFallback.enabled &&
+      (isImplicitAutoSelection || allowAutoCliFallback) &&
+      (!autoFallback.onlyWhenNoApiKeys || !hasAnyApiKeysConfigured(env))
+    if (!shouldUseAutoFallback) return []
+    return autoFallback.order
+  })()
+  if (enabledOrder.length === 0) return candidates
+
+  const providerOrder = prioritizeCliProvider(enabledOrder, lastSuccessfulCliProvider)
+
   const cliCandidates: string[] = []
   const add = (provider: CliProvider, modelOverride?: string) => {
-    if (!isCliProviderEnabled(provider, config)) return
+    if (hasExplicitEnabledList && !isCliProviderEnabled(provider, config)) return
     const model = modelOverride?.trim() || DEFAULT_CLI_MODELS[provider]
     if (!model) return
     const id = `cli/${provider}/${model}`
     if (!cliCandidates.includes(id)) cliCandidates.push(id)
   }
 
-  const enabledOrder: CliProvider[] = cli.enabled
-
-  for (const provider of enabledOrder) {
+  for (const provider of providerOrder) {
     const modelOverride =
       provider === 'gemini'
         ? cli?.gemini?.model
         : provider === 'codex'
           ? cli?.codex?.model
-          : cli?.claude?.model
+          : provider === 'agent'
+            ? cli?.agent?.model
+            : cli?.claude?.model
     add(provider, modelOverride)
   }
   if (cliCandidates.length === 0) return candidates
@@ -411,7 +508,14 @@ export function buildAutoModelAttempts(input: AutoSelectionInput): AutoModelAtte
     promptTokens: input.promptTokens,
     config: input.config,
   })
-  const candidates = prependCliCandidates({ candidates: baseCandidates, config: input.config })
+  const candidates = prependCliCandidates({
+    candidates: baseCandidates,
+    config: input.config,
+    env: input.env,
+    isImplicitAutoSelection: input.isImplicitAutoSelection ?? false,
+    allowAutoCliFallback: input.allowAutoCliFallback ?? false,
+    lastSuccessfulCliProvider: input.lastSuccessfulCliProvider ?? null,
+  })
   const shouldResolveOpenRouterIndex =
     !input.requiresVideoUnderstanding && envHasKey(input.env, 'OPENROUTER_API_KEY')
   // Resolve OpenRouter ids once per run (or use injected test list).

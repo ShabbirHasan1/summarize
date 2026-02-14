@@ -6,17 +6,30 @@ import { isCliThemeName, listCliThemes } from './tty/theme.js'
 
 export type AutoRuleKind = 'text' | 'website' | 'youtube' | 'image' | 'video' | 'file'
 export type VideoMode = 'auto' | 'transcript' | 'understand'
-export type CliProvider = 'claude' | 'codex' | 'gemini'
+export type CliProvider = 'claude' | 'codex' | 'gemini' | 'agent'
 export type CliProviderConfig = {
   binary?: string
   extraArgs?: string[]
   model?: string
 }
+export type CliAutoFallbackConfig = {
+  enabled?: boolean
+  onlyWhenNoApiKeys?: boolean
+  order?: CliProvider[]
+}
+export type CliMagicAutoConfig = CliAutoFallbackConfig
 export type CliConfig = {
   enabled?: CliProvider[]
   claude?: CliProviderConfig
   codex?: CliProviderConfig
   gemini?: CliProviderConfig
+  agent?: CliProviderConfig
+  autoFallback?: CliAutoFallbackConfig
+  magicAuto?: CliAutoFallbackConfig
+  promptOverride?: string
+  allowTools?: boolean
+  cwd?: string
+  extraArgs?: string[]
 }
 
 export type OpenAiConfig = {
@@ -284,7 +297,7 @@ function parseAutoRuleKind(value: unknown): AutoRuleKind | null {
 
 function parseCliProvider(value: unknown, path: string): CliProvider {
   const trimmed = typeof value === 'string' ? value.trim().toLowerCase() : ''
-  if (trimmed === 'claude' || trimmed === 'codex' || trimmed === 'gemini') {
+  if (trimmed === 'claude' || trimmed === 'codex' || trimmed === 'gemini' || trimmed === 'agent') {
     return trimmed as CliProvider
   }
   throw new Error(`Invalid config file ${path}: unknown CLI provider "${String(value)}".`)
@@ -367,6 +380,45 @@ function parseCliProviderConfig(raw: unknown, path: string, label: string): CliP
     ...(binaryValue ? { binary: binaryValue } : {}),
     ...(modelValue ? { model: modelValue } : {}),
     ...(extraArgs && extraArgs.length > 0 ? { extraArgs } : {}),
+  }
+}
+
+function parseCliAutoFallbackConfig(
+  raw: unknown,
+  path: string,
+  label: string
+): CliAutoFallbackConfig {
+  if (!isRecord(raw)) {
+    throw new Error(`Invalid config file ${path}: "cli.${label}" must be an object.`)
+  }
+  const enabled =
+    typeof raw.enabled === 'boolean'
+      ? raw.enabled
+      : typeof raw.enabled === 'undefined'
+        ? undefined
+        : (() => {
+            throw new Error(
+              `Invalid config file ${path}: "cli.${label}.enabled" must be a boolean.`
+            )
+          })()
+  const onlyWhenNoApiKeys =
+    typeof raw.onlyWhenNoApiKeys === 'boolean'
+      ? raw.onlyWhenNoApiKeys
+      : typeof raw.onlyWhenNoApiKeys === 'undefined'
+        ? undefined
+        : (() => {
+            throw new Error(
+              `Invalid config file ${path}: "cli.${label}.onlyWhenNoApiKeys" must be a boolean.`
+            )
+          })()
+  const order =
+    typeof raw.order === 'undefined'
+      ? undefined
+      : parseCliProviderList(raw.order, path, `cli.${label}.order`)
+  return {
+    ...(typeof enabled === 'boolean' ? { enabled } : {}),
+    ...(typeof onlyWhenNoApiKeys === 'boolean' ? { onlyWhenNoApiKeys } : {}),
+    ...(Array.isArray(order) && order.length > 0 ? { order } : {}),
   }
 }
 
@@ -921,6 +973,21 @@ export function loadSummarizeConfig({ env }: { env: Record<string, string | unde
     const claude = value.claude ? parseCliProviderConfig(value.claude, path, 'claude') : undefined
     const codex = value.codex ? parseCliProviderConfig(value.codex, path, 'codex') : undefined
     const gemini = value.gemini ? parseCliProviderConfig(value.gemini, path, 'gemini') : undefined
+    const agent = value.agent ? parseCliProviderConfig(value.agent, path, 'agent') : undefined
+    if (typeof value.autoFallback !== 'undefined' && typeof value.magicAuto !== 'undefined') {
+      throw new Error(
+        `Invalid config file ${path}: use only one of "cli.autoFallback" or legacy "cli.magicAuto".`
+      )
+    }
+    const autoFallback = (() => {
+      if (typeof value.autoFallback !== 'undefined') {
+        return parseCliAutoFallbackConfig(value.autoFallback, path, 'autoFallback')
+      }
+      if (typeof value.magicAuto !== 'undefined') {
+        return parseCliAutoFallbackConfig(value.magicAuto, path, 'magicAuto')
+      }
+      return undefined
+    })()
     const promptOverride =
       typeof value.promptOverride === 'string' && value.promptOverride.trim().length > 0
         ? value.promptOverride.trim()
@@ -937,6 +1004,8 @@ export function loadSummarizeConfig({ env }: { env: Record<string, string | unde
       claude ||
       codex ||
       gemini ||
+      agent ||
+      autoFallback ||
       promptOverride ||
       typeof allowTools === 'boolean' ||
       cwd ||
@@ -946,6 +1015,8 @@ export function loadSummarizeConfig({ env }: { env: Record<string, string | unde
           ...(claude ? { claude } : {}),
           ...(codex ? { codex } : {}),
           ...(gemini ? { gemini } : {}),
+          ...(agent ? { agent } : {}),
+          ...(autoFallback ? { autoFallback } : {}),
           ...(promptOverride ? { promptOverride } : {}),
           ...(typeof allowTools === 'boolean' ? { allowTools } : {}),
           ...(cwd ? { cwd } : {}),

@@ -1,3 +1,4 @@
+import type { CliProvider } from '../config.js'
 import type {
   FirecrawlMode,
   LengthArg,
@@ -44,6 +45,8 @@ export type RunOverrides = {
   retries: number | null
   maxOutputTokensArg: number | null
   transcriber: 'auto' | 'whisper' | 'parakeet' | 'canary' | null
+  autoCliFallbackEnabled: boolean | null
+  autoCliOrder: CliProvider[] | null
 }
 
 export type RunOverridesInput = {
@@ -58,6 +61,13 @@ export type RunOverridesInput = {
   retries?: unknown
   maxOutputTokens?: unknown
   transcriber?: unknown
+  autoCliFallback?: unknown
+  autoCliOrder?: unknown
+  autoCliRememberLastSuccess?: unknown
+  // Legacy aliases (kept for compatibility with older extensions).
+  magicCliAuto?: unknown
+  magicCliOrder?: unknown
+  magicCliRememberLastSuccess?: unknown
 }
 
 export function resolveSummaryLength(
@@ -155,7 +165,11 @@ const parseOptionalSetting = <T>(
   }
 }
 
-const parseOptionalBoolean = (raw: unknown, strict: boolean): boolean | null => {
+const parseOptionalBoolean = (
+  raw: unknown,
+  strict: boolean,
+  label = '--timestamps'
+): boolean | null => {
   if (typeof raw === 'boolean') return raw
   if (typeof raw !== 'string') return null
   const normalized = raw.trim().toLowerCase()
@@ -167,9 +181,44 @@ const parseOptionalBoolean = (raw: unknown, strict: boolean): boolean | null => 
     return false
   }
   if (strict) {
-    throw new Error(`Unsupported --timestamps: ${raw}`)
+    throw new Error(`Unsupported ${label}: ${raw}`)
   }
   return null
+}
+
+const parseCliProvider = (raw: string): CliProvider | null => {
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === 'claude') return 'claude'
+  if (normalized === 'gemini') return 'gemini'
+  if (normalized === 'codex') return 'codex'
+  if (normalized === 'agent') return 'agent'
+  return null
+}
+
+const parseOptionalCliProviderOrder = (raw: unknown, strict: boolean): CliProvider[] | null => {
+  if (typeof raw === 'undefined' || raw === null) return null
+  const items: string[] = Array.isArray(raw)
+    ? raw.filter((entry): entry is string => typeof entry === 'string')
+    : typeof raw === 'string'
+      ? raw
+          .split(/[,\s]+/)
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+      : []
+  if (items.length === 0) {
+    if (strict) throw new Error(`Unsupported --auto-cli-order: ${String(raw)}`)
+    return null
+  }
+  const out: CliProvider[] = []
+  for (const item of items) {
+    const provider = parseCliProvider(item)
+    if (!provider) {
+      if (strict) throw new Error(`Unsupported --auto-cli-order provider: ${item}`)
+      return null
+    }
+    if (!out.includes(provider)) out.push(provider)
+  }
+  return out.length > 0 ? out : null
 }
 
 export function resolveRunOverrides(
@@ -185,6 +234,12 @@ export function resolveRunOverrides(
     retries,
     maxOutputTokens,
     transcriber,
+    autoCliFallback,
+    autoCliOrder,
+    autoCliRememberLastSuccess,
+    magicCliAuto,
+    magicCliOrder,
+    magicCliRememberLastSuccess,
   }: RunOverridesInput,
   options: { strict?: boolean } = {}
 ): RunOverrides {
@@ -273,7 +328,20 @@ export function resolveRunOverrides(
     return null
   })()
 
-  const forceSummaryResolved = parseOptionalBoolean(forceSummary, strict)
+  const forceSummaryResolved = parseOptionalBoolean(forceSummary, strict, '--force-summary')
+  const autoCliFallbackEnabled = parseOptionalBoolean(
+    typeof autoCliFallback !== 'undefined' ? autoCliFallback : magicCliAuto,
+    strict,
+    '--auto-cli-fallback'
+  )
+  // Kept for backward compatibility with older extension payloads. Ignored now.
+  void autoCliRememberLastSuccess
+  // Kept for backward compatibility with older extension payloads. Ignored now.
+  void magicCliRememberLastSuccess
+  const autoCliOrderResolved = parseOptionalCliProviderOrder(
+    typeof autoCliOrder !== 'undefined' ? autoCliOrder : magicCliOrder,
+    strict
+  )
 
   return {
     firecrawlMode: parseOptionalSetting(firecrawl, parseFirecrawlMode, strict),
@@ -281,11 +349,13 @@ export function resolveRunOverrides(
     preprocessMode: parseOptionalSetting(preprocess, parsePreprocessMode, strict),
     youtubeMode: parseOptionalSetting(youtube, parseYoutubeMode, strict),
     videoMode: parseOptionalSetting(videoMode, parseVideoMode, strict),
-    transcriptTimestamps: parseOptionalBoolean(timestamps, strict),
+    transcriptTimestamps: parseOptionalBoolean(timestamps, strict, '--timestamps'),
     forceSummary: forceSummaryResolved,
     timeoutMs,
     retries: retriesResolved,
     maxOutputTokensArg,
     transcriber: transcriberOverride,
+    autoCliFallbackEnabled,
+    autoCliOrder: autoCliOrderResolved,
   }
 }

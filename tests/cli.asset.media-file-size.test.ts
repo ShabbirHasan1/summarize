@@ -49,6 +49,8 @@ function makeContext(): AssetSummaryContext {
     lengthInstruction: null,
     languageInstruction: null,
     isFallbackModel: false,
+    isImplicitAutoSelection: false,
+    allowAutoCliFallback: false,
     desiredOutputTokens: null,
     envForAuto: {},
     configForModelSelection: null,

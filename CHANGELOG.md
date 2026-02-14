@@ -18,77 +18,80 @@
 ### Highlights
 
 - Chrome Side Panel: **Chat mode** with metrics bar, message queue, and improved context (full transcript + summary metadata, jump-to-latest).
-- Slides: **YouTube slide screenshots + OCR + transcript-aligned cards**, timestamped seek, and an OCR/Transcript toggle.
 - Media-aware summarization in the Side Panel: Page vs Video/Audio dropdown, automatic media preference on video sites, plus visible word count/duration.
+- Slides: **YouTube slide screenshots + OCR + transcript-aligned cards**, timestamped seek, and an OCR/Transcript toggle.
 - CLI: robust URL + media extraction with transcript-first workflows and cache-aware streaming.
 
 ### Features
 
+- Chrome Side Panel chat: stream agent replies over SSE and restore chat history from daemon cache (#33, thanks @dougvk).
+- Media-aware summarization in the Side Panel: Page vs Video/Audio dropdown, automatic media preference on video sites, plus visible word count/duration.
+- Transcripts: `--timestamps` adds segment-level timings (`transcriptSegments` + `transcriptTimedText`) for YouTube, podcasts, and embedded captions.
+- Summaries: when transcript timestamps are available, prompts require timestamped bullet summaries; side panel auto-links `[mm:ss]` in summaries for media.
+- Chrome Side Panel chat: timestamped transcript context plus clickable `[mm:ss]` links that seek the current media.
 - Slides: extract slide screenshots + OCR for YouTube/direct video URLs in the CLI + extension (#41, thanks @philippb).
 - Slides: top-of-summary slide strip with expand/collapse full-width cards, timestamps, and click-to-seek.
 - Slides: slide descriptions without model calls (transcript windowing, OCR fallback) + OCR/Transcript toggle.
 - Slides: stream slide extraction status/progress and show a single header progress bar (no duplicate spinners).
-- Chrome Side Panel chat: stream agent replies over SSE and restore chat history from daemon cache (#33, thanks @dougvk).
-- Chrome Side Panel chat: timestamped transcript context plus clickable `[mm:ss]` links that seek the current media.
-- Summaries: when transcript timestamps are available, prompts require timestamped bullet summaries; side panel auto-links `[mm:ss]` in summaries for media.
-- Transcripts: `--timestamps` adds segment-level timings (`transcriptSegments` + `transcriptTimedText`) for YouTube, podcasts, and embedded captions.
-- Media-aware summarization in the Side Panel: Page vs Video/Audio dropdown, automatic media preference on video sites, plus visible word count/duration.
 - CLI: transcribe local audio/video files with mtime-aware transcript cache invalidation (thanks @mvance!).
 - Browser extension: add Firefox sidebar build + multi-browser config (#31, thanks @vlnd0).
+- CLI: add Cursor Agent CLI provider (`cli/agent`, `--cli agent`).
 - Chrome automation: add artifacts tool + REPL helpers for persistent session files (notes/JSON/CSV) and downloads.
 - Chrome automation: expand navigate tool with list/switch tab support and return matching skills after navigation.
 
 ### Fixes
 
-- Prompts: ignore sponsor/ads segments in video and podcast summaries.
-- Prompts: enforce no-ads/no-skipped language and italicized standout excerpts (no quotation marks).
+- Extract-only: remove implicit 8k cap; new `--max-extract-characters`/daemon `maxExtractCharacters` allow opt-in limits; resolves transcript truncation.
 - Media: route direct media URLs to the transcription pipeline and raise the local media limit to 2GB (#47, thanks @n0an).
-- Media: treat X broadcasts (`/i/broadcasts/...`) as transcript-first media and prefer URL mode.
-- Slides: render Slide X/Y labels and parse slide markers more robustly in streaming output.
-- Slides: ensure slide summary segments start with a title line when missing.
-- Slides: progress updates during yt-dlp downloads and OSC progress mirrors slide extraction.
-- Slides: reuse the media cache for downloaded videos (even with `--no-cache`).
-- Slides: clear slide progress line before the finish summary to avoid stray `Slides x/y` output.
-- Slides: parse `Slide N/Total` labels and stabilize title/body extraction.
-- CLI: `--no-cache` now bypasses summary caching only; transcript/media caches still apply.
+- Daemon (macOS): `daemon install` now falls back from `launchctl bootstrap gui/<uid>` to `user/<uid>` and resolves sudo/root uid targeting to avoid bootstrap `Input/output error` / `Domain does not support specified action` failures (#75).
 - Slides: allow yt-dlp cookies-from-browser via `SUMMARIZE_YT_DLP_COOKIES_FROM_BROWSER` to avoid YouTube 403s.
-- Chrome Side Panel chat: keep auto-scroll pinned while streaming when you’re already at the bottom.
-- Chrome Side Panel: scope streams/state per window so other windows don’t wipe active summaries.
 - Chrome Side Panel chat: support JSON agent replies with explicit SSE/JSON negotiation to avoid “stream ended” errors.
+- Chrome Side Panel: scope streams/state per window so other windows don’t wipe active summaries.
+- Chrome Side Panel chat: keep auto-scroll pinned while streaming when you’re already at the bottom.
 - Chrome Side Panel chat: clear streaming placeholders on errors/aborts.
 - Chrome Side Panel: add inline error toast above chat composer; errors stay visible when scrolled.
 - Chrome Side Panel: clear/hide the inline error toast when no message is present to avoid empty red boxes.
 - Cache: include transcript timestamp requests in extract cache keys so timed summaries don’t reuse plain transcript content.
-- Extract-only: remove implicit 8k cap; new `--max-extract-characters`/daemon `maxExtractCharacters` allow opt-in limits; resolves transcript truncation.
-- Automation: require userScripts (no isolated-world fallback), with improved guidance and in-panel permission notice.
+- CLI: `--no-cache` now bypasses summary caching only; transcript/media caches still apply.
+- Media: treat X broadcasts (`/i/broadcasts/...`) as transcript-first media and prefer URL mode.
 - Daemon: avoid URL flow crashes when url-preference helpers are missing (ReferenceError guard).
-- CLI: clear OSC progress on SIGINT/SIGTERM to avoid stuck indicators.
-- Slides: detect headline-style first lines and render them as slide titles (no required `Title:` markers).
 - YouTube: prefer English caption variants (`en-*`) when selecting caption tracks.
+- Prompts: ignore sponsor/ads segments in video and podcast summaries.
+- Prompts: enforce no-ads/no-skipped language and italicized standout excerpts (no quotation marks).
+- Slides: render Slide X/Y labels and parse slide markers more robustly in streaming output.
+- Slides: parse `Slide N/Total` labels and stabilize title/body extraction.
+- Slides: ensure slide summary segments start with a title line when missing.
+- Slides: detect headline-style first lines and render them as slide titles (no required `Title:` markers).
+- Slides: progress updates during yt-dlp downloads and OSC progress mirrors slide extraction.
+- Slides: reuse the media cache for downloaded videos (even with `--no-cache`).
+- Slides: clear slide progress line before the finish summary to avoid stray `Slides x/y` output.
+- Automation: require userScripts (no isolated-world fallback), with improved guidance and in-panel permission notice.
+- CLI: clear OSC progress on SIGINT/SIGTERM to avoid stuck indicators.
+- CLI local files: avoid hangs when stream usage never resolves and preprocess PDFs automatically for custom OpenAI-compatible `OPENAI_BASE_URL` endpoints (e.g. non-`api.openai.com`).
 
 ### Improvements
 
-- Daemon: emit slides start/progress/done metadata in extended logging for easier debugging.
-- Media: refactor routing helpers and size policy (#48, thanks @steipete).
+- Transcription: add auto transcriber selection (default) with ONNX-first when configured + `summarize transcriber setup`.
+- Cache: add media download caching with TTL/size caps + optional verification, plus `--no-media-cache`.
+- CLI: add themed output (24-bit ANSI), `--theme`, and config/env defaults for a consistent color scheme.
 - CLI: show determinate transcription progress percent when duration is known.
-- CLI: theme transcription progress lines and mirror part-based progress to OSC when duration is unknown.
 - CLI: show determinate OSC progress for transcription/download when totals are known.
 - CLI: keep OSC progress determinate when recent percent updates are available.
+- CLI: theme transcription progress lines and mirror part-based progress to OSC when duration is unknown.
 - CLI: theme tweet/extraction progress lines for consistent loading indicators.
 - CLI: theme file/slide spinner labels so all progress lines share the same styling.
 - CLI: simplify media download labels (avoid “media, video” duplication).
-- Transcription: add auto transcriber selection (default) with ONNX-first when configured + `summarize transcriber setup`.
 - Slides: cap auto slide targets at 6 by default for long videos.
-- CLI: add themed output (24-bit ANSI), `--theme`, and config/env defaults for a consistent color scheme.
-- Cache: add media download caching with TTL/size caps + optional verification, plus `--no-media-cache`.
 - Slides: render headline-style first lines as slide titles above the slide marker.
+- Media: refactor routing helpers and size policy (#48, thanks @steipete).
+- Daemon: emit slides start/progress/done metadata in extended logging for easier debugging.
 - Prompts: allow straight quotes and encourage 1-2 short exact quotes when relevant.
 
 ### Docs
 
 - README: 0.10.0 preview layout with clearer install flow, daemon rationale, and prominent Chrome Web Store link.
-- README: document ONNX transcriber setup + auto selection.
 - README/docs: add UI theme config + ONNX install hints.
+- README: document ONNX transcriber setup + auto selection.
 
 ## 0.9.0 - 2025-12-31
 

@@ -95,6 +95,45 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+async function withTimeoutFallback<T>({
+  promise,
+  timeoutMs,
+  fallback,
+}: {
+  promise: Promise<T>
+  timeoutMs: number
+  fallback: T
+}): Promise<T> {
+  const effectiveTimeoutMs =
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? Math.floor(timeoutMs) : 30_000
+  let timer: ReturnType<typeof setTimeout> | null = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), effectiveTimeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+function streamUsageWithTimeout({
+  result,
+  timeoutMs,
+}: {
+  result: Promise<{ usage?: unknown }>
+  timeoutMs: number
+}): Promise<LlmTokenUsage | null> {
+  const normalized = result.then((msg) => normalizeTokenUsage(msg.usage)).catch(() => null)
+  return withTimeoutFallback({
+    promise: normalized,
+    timeoutMs,
+    fallback: null,
+  })
+}
+
 function isOpenaiGpt5Model(parsed: ReturnType<typeof parseGatewayStyleModelId>): boolean {
   return parsed.provider === 'openai' && /^gpt-5([-.].+)?$/i.test(parsed.model)
 }
@@ -596,10 +635,7 @@ export async function streamTextWithContext({
         textStream: wrapTextStream(textStream),
         canonicalModelId: parsed.canonical,
         provider: parsed.provider,
-        usage: stream
-          .result()
-          .then((msg) => normalizeTokenUsage(msg.usage))
-          .catch(() => null),
+        usage: streamUsageWithTimeout({ result: stream.result(), timeoutMs }),
         lastError: () => lastError,
       }
     }
@@ -637,10 +673,7 @@ export async function streamTextWithContext({
         textStream: wrapTextStream(textStream),
         canonicalModelId: parsed.canonical,
         provider: parsed.provider,
-        usage: stream
-          .result()
-          .then((msg) => normalizeTokenUsage(msg.usage))
-          .catch(() => null),
+        usage: streamUsageWithTimeout({ result: stream.result(), timeoutMs }),
         lastError: () => lastError,
       }
     }
@@ -676,10 +709,7 @@ export async function streamTextWithContext({
         textStream: wrapTextStream(textStream),
         canonicalModelId: parsed.canonical,
         provider: parsed.provider,
-        usage: stream
-          .result()
-          .then((msg) => normalizeTokenUsage(msg.usage))
-          .catch(() => null),
+        usage: streamUsageWithTimeout({ result: stream.result(), timeoutMs }),
         lastError: () => lastError,
       }
     }
@@ -713,10 +743,7 @@ export async function streamTextWithContext({
         textStream: wrapTextStream(textStream),
         canonicalModelId: parsed.canonical,
         provider: parsed.provider,
-        usage: stream
-          .result()
-          .then((msg) => normalizeTokenUsage(msg.usage))
-          .catch(() => null),
+        usage: streamUsageWithTimeout({ result: stream.result(), timeoutMs }),
         lastError: () => lastError,
       }
     }
@@ -753,10 +780,7 @@ export async function streamTextWithContext({
       textStream: wrapTextStream(textStream),
       canonicalModelId: parsed.canonical,
       provider: parsed.provider,
-      usage: stream
-        .result()
-        .then((msg) => normalizeTokenUsage(msg.usage))
-        .catch(() => null),
+      usage: streamUsageWithTimeout({ result: stream.result(), timeoutMs }),
       lastError: () => lastError,
     }
   } catch (error) {

@@ -33,6 +33,9 @@ export function buildDaemonRequestBody({
     overrides.retries = settings.retries
   }
   if (maxOutputTokens) overrides.maxOutputTokens = maxOutputTokens
+  overrides.autoCliFallback = settings.autoCliFallback
+  const autoCliOrder = settings.autoCliOrder?.trim()
+  if (autoCliOrder) overrides.autoCliOrder = autoCliOrder
   const diagnostics = settings.extendedLogging ? { includeContent: true } : null
   return {
     url: extracted.url,

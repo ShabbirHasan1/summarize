@@ -1,5 +1,6 @@
 import type { OutputLanguage } from '../../../language.js'
 import type { Attachment } from '../../../llm/attachments.js'
+import { resolveOpenAiClientConfig } from '../../../llm/providers/openai.js'
 import { convertToMarkdownWithMarkitdown } from '../../../markitdown.js'
 import type { FixedModelSpec } from '../../../model-spec.js'
 import { buildFileSummaryPrompt, buildFileTextSummaryPrompt } from '../../../prompts/index.js'
@@ -30,6 +31,9 @@ export type AssetPreprocessContext = {
   promptOverride?: string | null
   lengthInstruction?: string | null
   languageInstruction?: string | null
+  openaiApiKey?: string | null
+  openrouterApiKey?: string | null
+  openaiBaseUrl?: string | null
 }
 
 export type AssetPreprocessResult = {
@@ -51,12 +55,18 @@ export function resolveDocumentHandling({
   fileBytes,
   preprocessMode,
   fixedModelSpec,
+  openaiApiKey,
+  openrouterApiKey,
+  openaiBaseUrl,
 }: {
   attachment: AssetAttachment
   textContent: { content: string; bytes: number } | null
   fileBytes: Uint8Array | null
   preprocessMode: 'off' | 'auto' | 'always'
   fixedModelSpec: FixedModelSpec | null
+  openaiApiKey?: string | null
+  openrouterApiKey?: string | null
+  openaiBaseUrl?: string | null
 }): DocumentHandlingDecision {
   if (attachment.kind !== 'file') return { mode: 'inline' }
   if (textContent) return { mode: 'inline' }
@@ -67,13 +77,38 @@ export function resolveDocumentHandling({
     }
   }
 
-  const canAttachDocument =
-    preprocessMode !== 'always' &&
-    fixedModelSpec?.transport === 'native' &&
-    supportsNativeFileAttachment({
-      provider: fixedModelSpec.provider,
-      attachment: { kind: attachment.kind, mediaType: attachment.mediaType },
-    })
+  const canAttachDocument = (() => {
+    if (preprocessMode === 'always') return false
+    if (fixedModelSpec?.transport !== 'native') return false
+    if (
+      !supportsNativeFileAttachment({
+        provider: fixedModelSpec.provider,
+        attachment: { kind: attachment.kind, mediaType: attachment.mediaType },
+      })
+    ) {
+      return false
+    }
+    if (fixedModelSpec.provider !== 'openai') return true
+    const resolvedOpenAiBaseUrl = fixedModelSpec.openaiBaseUrlOverride ?? openaiBaseUrl ?? null
+    try {
+      const openaiConfig = resolveOpenAiClientConfig({
+        apiKeys: { openaiApiKey: openaiApiKey ?? null, openrouterApiKey: openrouterApiKey ?? null },
+        forceOpenRouter: fixedModelSpec.forceOpenRouter,
+        openaiBaseUrlOverride: resolvedOpenAiBaseUrl,
+        forceChatCompletions: fixedModelSpec.forceChatCompletions,
+      })
+      if (openaiConfig.isOpenRouter) return false
+      const host = new URL(openaiConfig.baseURL ?? 'https://api.openai.com/v1').host.toLowerCase()
+      return host === 'api.openai.com'
+    } catch {
+      if (!resolvedOpenAiBaseUrl) return true
+      try {
+        return new URL(resolvedOpenAiBaseUrl).host.toLowerCase() === 'api.openai.com'
+      } catch {
+        return false
+      }
+    }
+  })()
 
   if (canAttachDocument && fileBytes.byteLength <= MAX_DOCUMENT_BYTES_DEFAULT) {
     return { mode: 'attach' }
@@ -186,6 +221,10 @@ export async function prepareAssetPrompt({
           fileBytes,
           preprocessMode: ctx.preprocessMode,
           fixedModelSpec: ctx.fixedModelSpec,
+          openaiApiKey: ctx.openaiApiKey ?? (ctx.envForRun.OPENAI_API_KEY?.trim() || null),
+          openrouterApiKey:
+            ctx.openrouterApiKey ?? (ctx.envForRun.OPENROUTER_API_KEY?.trim() || null),
+          openaiBaseUrl: ctx.openaiBaseUrl ?? (ctx.envForRun.OPENAI_BASE_URL?.trim() || null),
         })
       : { mode: 'inline' as const }
 

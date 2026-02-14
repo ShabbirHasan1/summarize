@@ -135,16 +135,51 @@ async function execLaunchctl(
   }
 }
 
-function resolveGuiDomain(): string {
-  if (typeof process.getuid !== 'function') return 'gui/501'
-  return `gui/${process.getuid()}`
+function parseUid(raw: string | undefined): number | null {
+  if (!raw) return null
+  const value = Number(raw.trim())
+  if (!Number.isInteger(value) || value < 0) return null
+  return value
+}
+
+export function resolveLaunchctlTargetUid({
+  uid,
+  sudoUid,
+}: {
+  uid?: number
+  sudoUid?: string
+} = {}): number {
+  const currentUid =
+    typeof uid === 'number' ? uid : typeof process.getuid === 'function' ? process.getuid() : null
+  if (currentUid === 0) {
+    const sudo = parseUid(sudoUid ?? process.env.SUDO_UID)
+    if (sudo !== null) return sudo
+  }
+  if (typeof currentUid === 'number' && currentUid >= 0) return currentUid
+  const fallbackSudo = parseUid(sudoUid ?? process.env.SUDO_UID)
+  if (fallbackSudo !== null) return fallbackSudo
+  return 501
+}
+
+export function resolveLaunchctlDomains({
+  uid,
+  sudoUid,
+}: {
+  uid?: number
+  sudoUid?: string
+} = {}): string[] {
+  const targetUid = resolveLaunchctlTargetUid({ uid, sudoUid })
+  return [`gui/${targetUid}`, `user/${targetUid}`]
 }
 
 export async function isLaunchAgentLoaded(): Promise<boolean> {
-  const domain = resolveGuiDomain()
   const label = DAEMON_LAUNCH_AGENT_LABEL
-  const res = await execLaunchctl(['print', `${domain}/${label}`])
-  return res.code === 0
+  const domains = resolveLaunchctlDomains()
+  for (const domain of domains) {
+    const res = await execLaunchctl(['print', `${domain}/${label}`])
+    if (res.code === 0) return true
+  }
+  return false
 }
 
 export async function uninstallLaunchAgent({
@@ -154,9 +189,11 @@ export async function uninstallLaunchAgent({
   env: Record<string, string | undefined>
   stdout: NodeJS.WritableStream
 }): Promise<void> {
-  const domain = resolveGuiDomain()
+  const domains = resolveLaunchctlDomains()
   const plistPath = resolveLaunchAgentPlistPath(env)
-  await execLaunchctl(['bootout', domain, plistPath])
+  for (const domain of domains) {
+    await execLaunchctl(['bootout', domain, plistPath])
+  }
   await execLaunchctl(['unload', plistPath])
 
   try {
@@ -204,17 +241,30 @@ export async function installLaunchAgent({
   })
   await fs.writeFile(plistPath, plist, 'utf8')
 
-  const domain = resolveGuiDomain()
-  await execLaunchctl(['bootout', domain, plistPath])
-  await execLaunchctl(['unload', plistPath])
-  const boot = await execLaunchctl(['bootstrap', domain, plistPath])
-  if (boot.code !== 0) {
-    throw new Error(`launchctl bootstrap failed: ${boot.stderr || boot.stdout}`.trim())
+  const domains = resolveLaunchctlDomains()
+  for (const domain of domains) {
+    await execLaunchctl(['bootout', domain, plistPath])
   }
-  await execLaunchctl(['enable', `${domain}/${DAEMON_LAUNCH_AGENT_LABEL}`])
-  await execLaunchctl(['kickstart', '-k', `${domain}/${DAEMON_LAUNCH_AGENT_LABEL}`])
+  await execLaunchctl(['unload', plistPath])
+  let installedDomain: string | null = null
+  let lastBootstrap: { stdout: string; stderr: string; code: number } | null = null
+  for (const domain of domains) {
+    const boot = await execLaunchctl(['bootstrap', domain, plistPath])
+    if (boot.code === 0) {
+      installedDomain = domain
+      break
+    }
+    lastBootstrap = boot
+  }
+  if (!installedDomain) {
+    const details = lastBootstrap?.stderr || lastBootstrap?.stdout || 'unknown error'
+    throw new Error(`launchctl bootstrap failed: ${details}`.trim())
+  }
+  await execLaunchctl(['enable', `${installedDomain}/${DAEMON_LAUNCH_AGENT_LABEL}`])
+  await execLaunchctl(['kickstart', '-k', `${installedDomain}/${DAEMON_LAUNCH_AGENT_LABEL}`])
 
   stdout.write(`Installed LaunchAgent: ${plistPath}\n`)
+  stdout.write(`Launch domain: ${installedDomain}\n`)
   stdout.write(`Logs: ${stdoutPath}\n`)
   return { plistPath }
 }
@@ -224,11 +274,18 @@ export async function restartLaunchAgent({
 }: {
   stdout: NodeJS.WritableStream
 }): Promise<void> {
-  const domain = resolveGuiDomain()
   const label = DAEMON_LAUNCH_AGENT_LABEL
-  const res = await execLaunchctl(['kickstart', '-k', `${domain}/${label}`])
-  if (res.code !== 0) {
-    throw new Error(`launchctl kickstart failed: ${res.stderr || res.stdout}`.trim())
+  const domains = resolveLaunchctlDomains()
+  let lastResult: { stdout: string; stderr: string; code: number } | null = null
+  for (const domain of domains) {
+    const res = await execLaunchctl(['kickstart', '-k', `${domain}/${label}`])
+    if (res.code === 0) {
+      stdout.write(`Restarted LaunchAgent: ${domain}/${label}\n`)
+      return
+    }
+    lastResult = res
   }
-  stdout.write(`Restarted LaunchAgent: ${domain}/${label}\n`)
+  throw new Error(
+    `launchctl kickstart failed: ${lastResult?.stderr || lastResult?.stdout || 'unknown error'}`.trim()
+  )
 }

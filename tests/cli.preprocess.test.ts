@@ -244,6 +244,56 @@ describe('cli preprocess / markitdown integration', () => {
     expect(body.input?.[0]?.content?.[0]?.file_data).toMatch(/^data:application\/pdf;base64,/)
   })
 
+  it('preprocesses PDFs for OpenAI models when OPENAI_BASE_URL is custom', async () => {
+    mocks.streamSimple.mockImplementation(() =>
+      makeTextDeltaStream(
+        ['OK\n'],
+        makeAssistantMessage({ text: 'OK\n', usage: { input: 1, output: 1, totalTokens: 2 } })
+      )
+    )
+    mocks.streamSimple.mockClear()
+
+    const root = mkdtempSync(join(tmpdir(), 'summarize-preprocess-openai-custom-base-'))
+    const pdfPath = join(root, 'test.pdf')
+    writeFileSync(pdfPath, Buffer.from('%PDF-1.7\n%PDF minimal\n%%EOF\n', 'utf8'))
+
+    const execFileMock = vi.fn((file, args, _opts, cb) => {
+      expect(file).toBe('uvx')
+      expect(args.slice(0, 3)).toEqual(['--from', 'markitdown[all]', 'markitdown'])
+      cb(null, '# Converted\n\nHello\n', '')
+    })
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error('unexpected fetch')
+    })
+
+    const stdout = collectStream()
+
+    await runCli(
+      ['--model', 'openai/gpt-5.2', '--timeout', '2s', '--stream', 'on', '--plain', pdfPath],
+      {
+        env: {
+          OPENAI_API_KEY: 'test',
+          OPENAI_BASE_URL: 'https://your-api-endpoint.com/v1',
+          UVX_PATH: 'uvx',
+        },
+        fetch: fetchMock as unknown as typeof fetch,
+        execFile: execFileMock as unknown as ExecFileFn,
+        stdout: stdout.stream,
+        stderr: noopStream(),
+      }
+    )
+
+    expect(execFileMock).toHaveBeenCalledTimes(1)
+    expect(mocks.streamSimple).toHaveBeenCalledTimes(1)
+    const context = mocks.streamSimple.mock.calls[0]?.[1] as {
+      messages?: Array<{ content?: unknown }>
+    }
+    expect(String(context.messages?.[0]?.content ?? '')).toContain('# Converted')
+    expect(stdout.getText()).toContain('OK')
+    expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
   it('errors when --preprocess off is used for PDFs (no binary attachments)', async () => {
     mocks.streamSimple.mockImplementation(() =>
       makeTextDeltaStream(

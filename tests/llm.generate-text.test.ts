@@ -740,4 +740,46 @@ describe('llm generate/stream', () => {
     const nextPromise = iterator.next()
     await expect(nextPromise).rejects.toThrow(/timed out/i)
   }, 250)
+
+  it('resolves stream usage as null when stream.result() never settles', async () => {
+    const finalMessage = makeAssistantMessage({ text: 'ok' })
+    mocks.streamSimple.mockImplementationOnce(() => ({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'text_delta' as const,
+          contentIndex: 0,
+          delta: 'ok',
+          partial: finalMessage,
+        }
+        yield {
+          type: 'done' as const,
+          reason: 'stop' as const,
+          message: finalMessage,
+        }
+      },
+      async result() {
+        await new Promise(() => {})
+      },
+    }))
+
+    const result = await streamTextWithModelId({
+      modelId: 'openai/gpt-5.2',
+      apiKeys: {
+        openaiApiKey: 'k',
+        xaiApiKey: null,
+        googleApiKey: null,
+        anthropicApiKey: null,
+        openrouterApiKey: null,
+      },
+      prompt: { userText: 'hi' },
+      timeoutMs: 20,
+      fetchImpl: globalThis.fetch.bind(globalThis),
+      maxOutputTokens: 10,
+    })
+
+    let streamed = ''
+    for await (const delta of result.textStream) streamed += delta
+    expect(streamed).toBe('ok')
+    await expect(result.usage).resolves.toBeNull()
+  })
 })

@@ -1,3 +1,7 @@
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { buildModelPickerOptions } from '../src/daemon/models.js'
@@ -43,5 +47,23 @@ describe('daemon /v1/models', () => {
     expect(result.providers.openrouter).toBe(true)
     expect(result.localModelsSource).toBeNull()
     expect(result.options.some((o) => o.id === 'free')).toBe(true)
+  })
+
+  it('includes available CLI model options', async () => {
+    const binDir = mkdtempSync(path.join(tmpdir(), 'summarize-cli-bin-'))
+    const claudePath = path.join(binDir, 'claude')
+    writeFileSync(claudePath, '#!/bin/sh\nexit 0\n', 'utf8')
+    chmodSync(claudePath, 0o755)
+
+    const result = await buildModelPickerOptions({
+      env: {},
+      envForRun: { PATH: binDir },
+      configForCli: null,
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.providers.cliClaude).toBe(true)
+    expect(result.options.some((o) => o.id === 'cli/claude')).toBe(true)
   })
 })

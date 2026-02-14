@@ -16,8 +16,9 @@ This is also the built-in default when you don’t specify a model.
 - Skips attempts that don’t have the required API key configured.
 - On any request error, tries the next attempt.
 - If no model is usable, prints the extracted text (no LLM summary). Use `--extract` if you want the raw extracted content even when models are available.
-- Auto prepends CLI attempts only when `cli.enabled` is set (see `docs/cli.md`).
-  - Order follows `cli.enabled`.
+- Auto prepends CLI attempts when either:
+  - `cli.enabled` is set (order follows `cli.enabled`), or
+  - implicit auto selection is active and `cli.autoFallback` allows it.
 
 ## OpenRouter vs native
 

@@ -98,4 +98,20 @@ describe('chrome/settings', () => {
     expect(loaded.retries).toBe(3)
     expect(loaded.maxOutputTokens).toBe('2k')
   })
+
+  it('normalizes auto CLI fallback settings', async () => {
+    await saveSettings({
+      ...defaultSettings,
+      autoCliFallback: false,
+      autoCliOrder: ' GeMiNi,unknown,CLAUDE,gemini ',
+    })
+
+    const raw = storage.settings as Record<string, unknown>
+    expect(raw.autoCliFallback).toBe(false)
+    expect(raw.autoCliOrder).toBe('gemini,claude')
+
+    const loaded = await loadSettings()
+    expect(loaded.autoCliFallback).toBe(false)
+    expect(loaded.autoCliOrder).toBe('gemini,claude')
+  })
 })

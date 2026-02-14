@@ -277,6 +277,17 @@
                   </span>
                 </div>
                 <div class="combo span-2">
+                  <div id="autoCliFallbackToggle"></div>
+                  <span class="subtitle">
+                    Auto CLI fallback: when model is Auto, try coding CLIs if no API model key is configured.
+                  </span>
+                </div>
+                <label>
+                  <span>Auto CLI order</span>
+                  <span class="subtitle">Comma-separated providers (claude, gemini, codex, agent).</span>
+                  <input id="autoCliOrder" type="text" placeholder="claude,gemini,codex,agent" />
+                </label>
+                <div class="combo span-2">
                   <div id="hoverSummariesToggle"></div>
                   <span class="subtitle">Show hover summary tooltips in pages. Experimental, default off.</span>
                 </div>

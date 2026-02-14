@@ -19,6 +19,8 @@ export type Settings = {
   slidesLayout: SlidesLayout
   summaryTimestamps: boolean
   extendedLogging: boolean
+  autoCliFallback: boolean
+  autoCliOrder: string
   hoverPrompt: string
   transcriber: string
   model: string
@@ -96,6 +98,25 @@ function normalizeHoverPrompt(value: unknown): string {
   const trimmed = value.trim()
   if (!trimmed) return defaultSettings.hoverPrompt
   return value
+}
+
+function normalizeAutoCliOrder(value: unknown): string {
+  const source =
+    typeof value === 'string'
+      ? value
+      : Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === 'string').join(',')
+        : defaultSettings.autoCliOrder
+  const items = source
+    .split(/[,\s]+/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+  const out: string[] = []
+  for (const item of items) {
+    if (item !== 'claude' && item !== 'gemini' && item !== 'codex' && item !== 'agent') continue
+    if (!out.includes(item)) out.push(item)
+  }
+  return out.length > 0 ? out.join(',') : defaultSettings.autoCliOrder
 }
 
 function normalizeTranscriber(value: unknown): string {
@@ -208,6 +229,8 @@ export const defaultSettings: Settings = {
   slidesLayout: 'strip',
   summaryTimestamps: true,
   extendedLogging: false,
+  autoCliFallback: true,
+  autoCliOrder: 'claude,gemini,codex,agent',
   hoverPrompt:
     'Plain text only (no Markdown). Summarize the linked page concisely in 1-2 sentences; aim for 100-200 characters.',
   transcriber: '',
@@ -283,6 +306,17 @@ export async function loadSettings(): Promise<Settings> {
       typeof raw.extendedLogging === 'boolean'
         ? raw.extendedLogging
         : defaultSettings.extendedLogging,
+    autoCliFallback:
+      typeof raw.autoCliFallback === 'boolean'
+        ? raw.autoCliFallback
+        : typeof (raw as Record<string, unknown>).magicCliAuto === 'boolean'
+          ? ((raw as Record<string, unknown>).magicCliAuto as boolean)
+          : defaultSettings.autoCliFallback,
+    autoCliOrder: normalizeAutoCliOrder(
+      typeof raw.autoCliOrder !== 'undefined'
+        ? raw.autoCliOrder
+        : (raw as Record<string, unknown>).magicCliOrder
+    ),
     hoverPrompt: normalizeHoverPrompt(raw.hoverPrompt),
     transcriber: normalizeTranscriber(raw.transcriber),
     maxChars: typeof raw.maxChars === 'number' ? raw.maxChars : defaultSettings.maxChars,
@@ -311,6 +345,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
       language: normalizeLanguage(settings.language),
       promptOverride: normalizePromptOverride(settings.promptOverride),
       hoverPrompt: normalizeHoverPrompt(settings.hoverPrompt),
+      autoCliOrder: normalizeAutoCliOrder(settings.autoCliOrder),
       requestMode: normalizeRequestMode(settings.requestMode),
       slidesLayout: normalizeSlidesLayout(settings.slidesLayout),
       firecrawlMode: normalizeFirecrawlMode(settings.firecrawlMode),
