@@ -2,21 +2,17 @@
 
 ## Current Status
 
-### Chrome/Chromium Tests: ✅ Working (16/25 passing)
+### Chrome/Chromium Tests: ✅ Working (39 passed, 2 skipped)
 
-**NOTE:** The 16/25 pass rate is **pre-existing** and not caused by the Firefox testing additions. These test failures existed before the cross-browser work and are due to:
+Latest local run:
 
-- Timeout issues in some tests (11-60s)
-- Environment-specific daemon mocking issues
-- Pre-existing flakiness in agent/chat queue tests
-
-The cross-browser infrastructure does not affect Chrome test results.
+- `39 passed`
+- `2 skipped` (YouTube E2E opt-in)
 
 ### Firefox Tests: ⚠️ Blocked by Playwright Limitation
 
 **Status:** Infrastructure complete, but Playwright's Firefox driver has limitations.
-CI only runs Chromium E2E; Firefox tests are skipped unless explicitly enabled.
-CI only runs Chromium E2E; Firefox tests are skipped unless explicitly enabled.
+CI only runs Chromium E2E; Firefox tests are skipped by default.
 
 **What Works:**
 
@@ -128,6 +124,13 @@ test.skip(
 );
 ```
 
+Default/force scripts:
+
+```bash
+pnpm -C apps/chrome-extension test:firefox
+pnpm -C apps/chrome-extension test:firefox:force
+```
+
 ## Test Results Summary
 
 ### Chromium (before and after cross-browser work)
@@ -198,16 +201,16 @@ extension-e2e-firefox:
 - Automatic browser detection from Playwright projects
 - Correct extension paths and URL schemes
 
-**Chromium tests: ✅ Same as before (16/25)**
+**Chromium tests: ✅ Green**
 
-- No regression from Firefox work
-- Pre-existing failures unrelated to cross-browser changes
+- 39 passed, 2 skipped in latest local run
+- No Firefox-related regressions
 
 **Firefox tests: ⚠️ Waiting on Playwright**
 
-- Infrastructure ready
-- Extension works in manual testing
-- Automated tests blocked by Playwright/Firefox incompatibility
+- Default run: skipped (known Playwright limitation)
+- Force run: expected to fail with `NS_ERROR_NOT_AVAILABLE` on `moz-extension://` navigation
+- Manual Firefox testing remains the reliable path
 
 ## References
 

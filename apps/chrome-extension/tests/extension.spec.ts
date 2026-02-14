@@ -1785,7 +1785,7 @@ test("sidepanel resumes slides when returning to a tab", async ({
 
     await sendBgMessage(harness, { type: "ui:state", state: tabAState });
     await sendBgMessage(harness, { type: "ui:state", state: tabBState });
-    await expect(page.locator("#title")).toHaveText("Bravo Tab");
+    await expect.poll(async () => (await getPanelSlideDescriptions(page)).length).toBe(0);
     await sendBgMessage(harness, {
       type: "slides:run",
       ok: true,

@@ -18,4 +18,8 @@
 - Rebuild (extension + daemon): run **both** in order:
   1. `pnpm -C apps/chrome-extension build`
   2. `pnpm summarize daemon restart`
+- Extension tests:
+  - `pnpm -C apps/chrome-extension test:chrome` = supported automated path.
+  - Firefox Playwright extension tests are not reliable (`moz-extension://` limitation); default `test:firefox` skips.
+  - Use `pnpm -C apps/chrome-extension test:firefox:force` only for explicit diagnostics.
 - Commits: use `committer "type: message" <files...>` (Conventional Commits).

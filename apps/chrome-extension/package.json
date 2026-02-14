@@ -13,7 +13,8 @@
     "test": "pnpm test:e2e",
     "test:chrome": "env -u NO_COLOR pnpm build && env -u NO_COLOR playwright test -c playwright.config.ts --project=chromium",
     "test:e2e": "env -u NO_COLOR pnpm build && env -u NO_COLOR playwright test -c playwright.config.ts --project=chromium",
-    "test:firefox": "env -u NO_COLOR ALLOW_FIREFOX_EXTENSION_TESTS=1 pnpm build:firefox && env -u NO_COLOR ALLOW_FIREFOX_EXTENSION_TESTS=1 playwright test -c playwright.config.ts --project=firefox"
+    "test:firefox": "env -u NO_COLOR pnpm build:firefox && env -u NO_COLOR playwright test -c playwright.config.ts --project=firefox",
+    "test:firefox:force": "env -u NO_COLOR ALLOW_FIREFOX_EXTENSION_TESTS=1 pnpm build:firefox && env -u NO_COLOR ALLOW_FIREFOX_EXTENSION_TESTS=1 playwright test -c playwright.config.ts --project=firefox"
   },
   "dependencies": {
     "@mozilla/readability": "0.6.0",
