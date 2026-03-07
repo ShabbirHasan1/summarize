@@ -10,6 +10,7 @@
 
 - npm packaging: publish CLI with `pnpm publish` so `@steipete/summarize-core` is version-pinned in published metadata (no `workspace:*` in registry package).
 - CLI help: surface `summarize refresh-free` in `summarize help` output.
+- Slides: warn in summary mode when `--slides` dependencies are missing, and document required local installs for `ffmpeg`, `yt-dlp`, and optional `tesseract`.
 
 ## 0.11.0 - 2026-02-14
 

@@ -43,6 +43,39 @@ import { createMarkdownConverters } from "./markdown.js";
 import { createSlidesTerminalOutput } from "./slides-output.js";
 import { buildUrlPrompt, outputExtractedUrl, summarizeExtractedUrl } from "./summary.js";
 
+function isMissingSlidesDependencyError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("missing ffmpeg") ||
+    lower.includes("install ffmpeg") ||
+    lower.includes("require yt-dlp") ||
+    lower.includes("install yt-dlp") ||
+    lower.includes("missing tesseract")
+  );
+}
+
+function writeSlidesBackgroundFailureWarning({
+  ctx,
+  theme,
+  message,
+}: {
+  ctx: Pick<UrlFlowContext, "io" | "flags" | "hooks">;
+  theme: ReturnType<typeof createThemeRenderer>;
+  message: string;
+}) {
+  if (ctx.flags.json || ctx.flags.extractMode) return;
+  ctx.hooks.clearProgressForStdout();
+  ctx.io.stderr.write(
+    `${theme.warning("Warning:")} --slides could not extract slide images: ${message}\n`,
+  );
+  if (isMissingSlidesDependencyError(message)) {
+    ctx.io.stderr.write(
+      `${theme.dim("Install ffmpeg + yt-dlp for --slides, and tesseract for --slides-ocr.")}\n`,
+    );
+  }
+  ctx.hooks.restoreProgressAfterStdout?.();
+}
+
 export async function runUrlFlow({
   ctx,
   url,
@@ -680,6 +713,7 @@ export async function runUrlFlow({
       void runSlidesExtraction().catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         ctx.hooks.onSlidesProgress?.(`Slides: failed (${message})`);
+        writeSlidesBackgroundFailureWarning({ ctx, theme, message });
         writeVerbose(
           io.stderr,
           flags.verbose,

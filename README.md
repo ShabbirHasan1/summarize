@@ -126,6 +126,23 @@ brew install steipete/tap/summarize
 
 Apple Silicon only (arm64).
 
+### Optional local dependencies
+
+Install these if you want media-heavy features:
+
+- `ffmpeg`: required for `--slides` and many local media/transcription flows
+- `yt-dlp`: required for YouTube slide extraction and some remote media flows
+- `tesseract`: optional OCR for `--slides-ocr`
+
+macOS (Homebrew):
+
+```bash
+brew install ffmpeg yt-dlp
+brew install tesseract # optional, for --slides-ocr
+```
+
+If `--slides` is enabled and these tools are missing, Summarize warns and continues without slides.
+
 ### CLI vs extension
 
 - **CLI only:** just install via npm/Homebrew and run `summarize ...` (no daemon needed).
@@ -399,6 +416,12 @@ Apify costs money but tends to be more reliable when captions exist.
 ### Slide extraction (YouTube + direct video URLs)
 
 Extract slide screenshots (scene detection via `ffmpeg`) and optional OCR:
+
+Requirements:
+
+- `ffmpeg` for scene detection and frame extraction
+- `yt-dlp` for YouTube video download/stream resolution
+- `tesseract` only when using `--slides-ocr`
 
 ```bash
 summarize "https://www.youtube.com/watch?v=..." --slides
