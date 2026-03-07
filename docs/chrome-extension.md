@@ -163,7 +163,7 @@ Problem: daemon must be secured; extension must discover and pair with it.
     - `summarize daemon install --token <TOKEN>` (macOS: LaunchAgent, Linux: systemd user, Windows: Scheduled Task)
     - `summarize daemon status`
   - “Copy command” button.
-- Daemon stores token in `~/.summarize/daemon.json`.
+- Daemon stores paired tokens in `~/.summarize/daemon.json`.
 - Extension stores token in `chrome.storage.local`.
 - If daemon unreachable or 401: show Setup state + troubleshooting.
 
@@ -247,7 +247,7 @@ Notes:
   - `summarize daemon run` (foreground; used by autostart service)
 - Ensure “single daemon”:
   - Stable service name + predictable unit/task path
-  - `install` replaces previous install and validates token match
+  - `install` reuses the same daemon service and appends new tokens instead of invalidating older paired browsers
 
 Platform details:
 

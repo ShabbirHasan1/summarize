@@ -58,7 +58,7 @@ Notes:
 
 - Summarization only runs when the Side Panel is open.
 - Auto mode summarizes on navigation (incl. SPAs); otherwise use the button.
-- Daemon is localhost-only and requires a shared token.
+- Daemon is localhost-only and requires a shared token; rerunning `summarize daemon install --token <TOKEN>` adds another paired browser token instead of invalidating the old one.
 - Autostart: macOS (launchd), Linux (systemd user), Windows (Scheduled Task).
 - Tip: configure `free` via `summarize refresh-free` (needs `OPENROUTER_API_KEY`). Add `--set-default` to set model=`free`.
 

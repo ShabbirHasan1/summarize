@@ -720,9 +720,16 @@ function readDaemonToken(): string | null {
   if (envToken) return envToken;
   try {
     const raw = fs.readFileSync(path.join(os.homedir(), ".summarize", "daemon.json"), "utf8");
-    const json = JSON.parse(raw) as { token?: unknown };
+    const json = JSON.parse(raw) as { token?: unknown; tokens?: unknown };
     const token = typeof json.token === "string" ? json.token.trim() : "";
-    return token || null;
+    if (token) return token;
+    if (Array.isArray(json.tokens)) {
+      const fromList = json.tokens.find(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      );
+      return fromList?.trim() || null;
+    }
+    return null;
   } catch {
     return null;
   }

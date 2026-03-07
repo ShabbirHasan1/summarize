@@ -5,7 +5,7 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import type { CacheState } from "../cache.js";
 import type { SlideExtractionResult, SlideSettings } from "../slides/index.js";
-import type { DaemonConfig } from "./config.js";
+import { daemonConfigTokens, type DaemonConfig } from "./config.js";
 import { loadSummarizeConfig } from "../config.js";
 import { createDaemonLogger } from "../logging/daemon.js";
 import { runWithProcessContext, setProcessObserver } from "../processes.js";
@@ -529,7 +529,7 @@ export async function runDaemonServer({
       }
 
       const token = readBearerToken(req);
-      const authed = token && token === config.token;
+      const authed = token ? daemonConfigTokens(config).includes(token) : false;
       if (pathname.startsWith("/v1/") && !authed) {
         json(res, 401, { ok: false, error: "unauthorized" }, cors);
         return;

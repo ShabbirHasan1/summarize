@@ -11,7 +11,22 @@ export type DaemonConfigV1 = {
   installedAt: string;
 };
 
-export type DaemonConfig = DaemonConfigV1;
+export type DaemonConfigV2 = {
+  version: 2;
+  token: string;
+  tokens: string[];
+  port: number;
+  env: EnvSnapshot;
+  installedAt: string;
+};
+
+export type DaemonConfig = DaemonConfigV1 | DaemonConfigV2;
+
+function trimDaemonToken(raw: string): string {
+  const token = raw.trim();
+  if (!token) throw new Error("Missing token");
+  return token;
+}
 
 function resolveHomeDir(env: Record<string, string | undefined>): string {
   const home = env.HOME?.trim() || env.USERPROFILE?.trim();
@@ -25,10 +40,44 @@ export function resolveDaemonConfigPath(env: Record<string, string | undefined>)
 }
 
 export function normalizeDaemonToken(raw: string): string {
-  const token = raw.trim();
-  if (!token) throw new Error("Missing token");
+  const token = trimDaemonToken(raw);
   if (token.length < 16) throw new Error("Token too short (expected >= 16 chars)");
   return token;
+}
+
+export function normalizeDaemonTokens(raw: unknown): string[] {
+  if (!Array.isArray(raw)) throw new Error("Missing tokens");
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const normalized = normalizeDaemonToken(item);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    tokens.push(normalized);
+  }
+  if (tokens.length === 0) throw new Error("Missing tokens");
+  return tokens;
+}
+
+export function daemonConfigPrimaryToken(config: DaemonConfig): string {
+  if (config.version === 2) return trimDaemonToken(config.token);
+  return trimDaemonToken(config.token);
+}
+
+export function daemonConfigTokens(config: DaemonConfig): string[] {
+  if (config.version === 2) {
+    const tokens = Array.from(
+      new Set(
+        config.tokens
+          .filter((token): token is string => typeof token === "string")
+          .map((token) => trimDaemonToken(token)),
+      ),
+    );
+    const primary = trimDaemonToken(config.token);
+    return tokens.includes(primary) ? tokens : [primary, ...tokens];
+  }
+  return [trimDaemonToken(config.token)];
 }
 
 export function normalizeDaemonPort(raw: unknown): number {
@@ -62,9 +111,10 @@ export async function readDaemonConfig({
     throw new Error(`Invalid daemon config at ${configPath}: expected object`);
   }
   const obj = parsed as Record<string, unknown>;
-  if (obj.version !== 1) throw new Error(`Invalid daemon config at ${configPath}: version`);
-  const tokenRaw = typeof obj.token === "string" ? obj.token : "";
-  const token = normalizeDaemonToken(tokenRaw);
+  const version = typeof obj.version === "number" ? obj.version : Number.NaN;
+  if (version !== 1 && version !== 2) {
+    throw new Error(`Invalid daemon config at ${configPath}: version`);
+  }
   const port = normalizeDaemonPort(typeof obj.port === "number" ? obj.port : DAEMON_PORT_DEFAULT);
   const envRaw = obj.env && typeof obj.env === "object" ? (obj.env as Record<string, unknown>) : {};
   const envSnapshot: EnvSnapshot = {};
@@ -76,7 +126,26 @@ export async function readDaemonConfig({
   }
   const installedAt =
     typeof obj.installedAt === "string" ? obj.installedAt : new Date().toISOString();
-  return { version: 1, token, port, env: envSnapshot, installedAt };
+  if (version === 1) {
+    const tokenRaw = typeof obj.token === "string" ? obj.token : "";
+    const token = normalizeDaemonToken(tokenRaw);
+    return { version: 2, token, tokens: [token], port, env: envSnapshot, installedAt };
+  }
+  const tokens = normalizeDaemonTokens(
+    Array.isArray(obj.tokens) ? obj.tokens : typeof obj.token === "string" ? [obj.token] : [],
+  );
+  const token =
+    typeof obj.token === "string" && obj.token.trim().length > 0
+      ? normalizeDaemonToken(obj.token)
+      : tokens[0]!;
+  return {
+    version: 2,
+    token: tokens.includes(token) ? token : tokens[0]!,
+    tokens: tokens.includes(token) ? tokens : [token, ...tokens],
+    port,
+    env: envSnapshot,
+    installedAt,
+  };
 }
 
 export async function writeDaemonConfig({
@@ -84,15 +153,20 @@ export async function writeDaemonConfig({
   config,
 }: {
   env: Record<string, string | undefined>;
-  config: Omit<DaemonConfig, "version" | "installedAt"> &
-    Partial<Pick<DaemonConfig, "installedAt">>;
+  config: Omit<DaemonConfigV2, "version" | "installedAt"> &
+    Partial<Pick<DaemonConfigV2, "installedAt">>;
 }): Promise<string> {
   const configPath = resolveDaemonConfigPath(env);
   const dir = path.dirname(configPath);
   await fs.mkdir(dir, { recursive: true });
-  const payload: DaemonConfig = {
-    version: 1,
-    token: normalizeDaemonToken(config.token),
+  const primaryToken = normalizeDaemonToken(config.token);
+  const tokens = normalizeDaemonTokens(
+    Array.isArray(config.tokens) ? [primaryToken, ...config.tokens] : [primaryToken],
+  );
+  const payload: DaemonConfigV2 = {
+    version: 2,
+    token: primaryToken,
+    tokens,
     port: normalizeDaemonPort(config.port),
     env: config.env ?? {},
     installedAt: config.installedAt ?? new Date().toISOString(),
