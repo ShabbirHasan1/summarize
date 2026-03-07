@@ -98,7 +98,7 @@ export function createMarkdownConverters(
     // Otherwise pick a safe, broadly-capable default for HTML→Markdown conversion.
     if (ctx.model.apiStatus.googleConfigured) {
       return {
-        llmModelId: "google/gemini-3-flash-preview",
+        llmModelId: "google/gemini-3-flash",
         forceOpenRouter: false,
         requiredEnv: "GEMINI_API_KEY",
       };

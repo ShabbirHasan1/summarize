@@ -160,8 +160,8 @@ summarize "https://example.com"
 URLs or local paths:
 
 ```bash
-summarize "/path/to/file.pdf" --model google/gemini-3-flash-preview
-summarize "https://example.com/report.pdf" --model google/gemini-3-flash-preview
+summarize "/path/to/file.pdf" --model google/gemini-3-flash
+summarize "https://example.com/report.pdf" --model google/gemini-3-flash
 summarize "/path/to/audio.mp3"
 summarize "/path/to/video.mp4"
 ```
@@ -256,7 +256,7 @@ Examples:
 - `openai/gpt-5-mini`
 - `anthropic/claude-sonnet-4-5`
 - `xai/grok-4-fast-non-reasoning`
-- `google/gemini-3-flash-preview`
+- `google/gemini-3-flash`
 - `zai/glm-4.7`
 - `openrouter/openai/gpt-5-mini` (force OpenRouter)
 

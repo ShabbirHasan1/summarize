@@ -56,7 +56,7 @@ For UI theme:
 
 ```json
 {
-  "model": { "id": "google/gemini-3-flash-preview" },
+  "model": { "id": "google/gemini-3-flash" },
   "env": { "OPENAI_API_KEY": "sk-..." },
   "output": { "language": "auto" },
   "prompt": "Explain like I am five.",
@@ -68,7 +68,7 @@ Shorthand (equivalent):
 
 ```json
 {
-  "model": "google/gemini-3-flash-preview"
+  "model": "google/gemini-3-flash"
 }
 ```
 
@@ -260,7 +260,7 @@ For auto selection with rules:
     "rules": [
       {
         "when": ["video"],
-        "candidates": ["google/gemini-3-flash-preview"]
+        "candidates": ["google/gemini-3-flash"]
       },
       {
         "when": ["website", "youtube"],

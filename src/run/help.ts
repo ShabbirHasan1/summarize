@@ -305,7 +305,7 @@ export function buildConciseHelp(): string {
     "",
     "Examples:",
     '  summarize "https://example.com"',
-    '  summarize "/path/to/file.pdf" --model google/gemini-3-flash-preview',
+    '  summarize "/path/to/file.pdf" --model google/gemini-3-flash',
     "  pbpaste | summarize -",
     "",
     "Run summarize --help for full options.",

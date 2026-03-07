@@ -24,7 +24,7 @@ This is also the built-in default when you don’t specify a model.
 
 Model ids:
 
-- Native: `<provider>/<model>` (e.g. `openai/gpt-5-mini`, `google/gemini-3-flash-preview`)
+- Native: `<provider>/<model>` (e.g. `openai/gpt-5-mini`, `google/gemini-3-flash`)
 - Forced OpenRouter: `openrouter/<author>/<slug>` (e.g. `openrouter/meta-llama/llama-3.3-70b-instruct:free`)
 
 Behavior:
@@ -68,7 +68,7 @@ Example:
     "rules": [
       {
         "when": ["video"],
-        "candidates": ["google/gemini-3-flash-preview"]
+        "candidates": ["google/gemini-3-flash"]
       },
       {
         "when": ["website", "youtube"],

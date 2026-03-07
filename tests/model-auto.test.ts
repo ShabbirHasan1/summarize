@@ -235,7 +235,7 @@ describe("auto model selection", () => {
 
   it("does not add an OpenRouter fallback when video understanding is required", () => {
     const config: SummarizeConfig = {
-      model: { mode: "auto", rules: [{ candidates: ["google/gemini-3-flash-preview"] }] },
+      model: { mode: "auto", rules: [{ candidates: ["google/gemini-3-flash"] }] },
     };
     const attempts = buildAutoModelAttempts({
       kind: "video",
@@ -399,7 +399,7 @@ describe("auto model selection", () => {
       cliAvailability: { claude: true, codex: true, gemini: true },
     });
 
-    expect(attempts[0]?.userModelId).toBe("google/gemini-3-flash-preview");
+    expect(attempts[0]?.userModelId).toBe("google/gemini-3-flash");
   });
 
   it("prepends CLI candidates when enabled", () => {
@@ -500,7 +500,7 @@ describe("auto model selection", () => {
       lastSuccessfulCliProvider: "gemini",
     });
 
-    expect(attempts[0]?.userModelId).toBe("cli/gemini/gemini-3-flash-preview");
+    expect(attempts[0]?.userModelId).toBe("cli/gemini/gemini-3-flash");
     expect(attempts[1]?.userModelId).toBe("cli/claude/sonnet");
   });
 });

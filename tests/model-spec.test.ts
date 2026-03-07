@@ -37,6 +37,15 @@ describe("model spec parsing", () => {
     expect(parsed.requiredEnv).toBe("CLI_AGENT");
   });
 
+  it("defaults gemini cli models when missing", () => {
+    const parsed = parseRequestedModelId("cli/gemini");
+    expect(parsed.kind).toBe("fixed");
+    expect(parsed.transport).toBe("cli");
+    expect(parsed.cliProvider).toBe("gemini");
+    expect(parsed.cliModel).toBe("gemini-3-flash");
+    expect(parsed.requiredEnv).toBe("CLI_GEMINI");
+  });
+
   it("rejects invalid cli providers", () => {
     expect(() => parseRequestedModelId("cli/unknown/model")).toThrow(/Invalid CLI model id/);
   });

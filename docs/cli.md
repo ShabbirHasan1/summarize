@@ -12,7 +12,7 @@ Summarize can use installed CLIs (Claude, Codex, Gemini, Cursor Agent) as local 
 
 - `cli/claude/<model>` (e.g. `cli/claude/sonnet`)
 - `cli/codex/<model>` (e.g. `cli/codex/gpt-5.2`)
-- `cli/gemini/<model>` (e.g. `cli/gemini/gemini-3-flash-preview`)
+- `cli/gemini/<model>` (e.g. `cli/gemini/gemini-3-flash`)
 - `cli/agent/<model>` (e.g. `cli/agent/gpt-5.2`)
 
 Use `--cli [provider]` (case-insensitive) for the provider default, or `--model cli/<provider>/<model>` to pin a model.
@@ -95,7 +95,7 @@ path-based prompt and enables the required tool flags:
       "order": ["claude", "gemini", "codex", "agent"]
     },
     "codex": { "model": "gpt-5.2" },
-    "gemini": { "model": "gemini-3-flash-preview", "extraArgs": ["--verbose"] },
+    "gemini": { "model": "gemini-3-flash", "extraArgs": ["--verbose"] },
     "claude": {
       "model": "sonnet",
       "binary": "/usr/local/bin/claude",

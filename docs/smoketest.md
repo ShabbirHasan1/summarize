@@ -16,7 +16,7 @@ Goal: exercise URL + file inputs, extraction + LLM summary paths, multiple model
 ## Models (cheap/fast)
 
 - `openai/gpt-5-mini`
-- `google/gemini-3-flash-preview`
+- `google/gemini-3-flash`
 
 ## Matrix (20 cases)
 

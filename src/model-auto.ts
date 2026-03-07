@@ -147,12 +147,12 @@ function normalizeSlugForMatch(slug: string): string {
 const DEFAULT_RULES: AutoRule[] = [
   {
     when: ["video"],
-    candidates: ["google/gemini-3-flash-preview", "google/gemini-2.5-flash-lite-preview-09-2025"],
+    candidates: ["google/gemini-3-flash", "google/gemini-2.5-flash-lite-preview-09-2025"],
   },
   {
     when: ["image"],
     candidates: [
-      "google/gemini-3-flash-preview",
+      "google/gemini-3-flash",
       "openai/gpt-5-mini",
       "anthropic/claude-sonnet-4-5",
     ],
@@ -163,7 +163,7 @@ const DEFAULT_RULES: AutoRule[] = [
       {
         token: { max: 50_000 },
         candidates: [
-          "google/gemini-3-flash-preview",
+          "google/gemini-3-flash",
           "openai/gpt-5-mini",
           "anthropic/claude-sonnet-4-5",
         ],
@@ -171,7 +171,7 @@ const DEFAULT_RULES: AutoRule[] = [
       {
         token: { max: 200_000 },
         candidates: [
-          "google/gemini-3-flash-preview",
+          "google/gemini-3-flash",
           "openai/gpt-5-mini",
           "anthropic/claude-sonnet-4-5",
         ],
@@ -179,7 +179,7 @@ const DEFAULT_RULES: AutoRule[] = [
       {
         candidates: [
           "xai/grok-4-fast-non-reasoning",
-          "google/gemini-3-flash-preview",
+          "google/gemini-3-flash",
           "openai/gpt-5-mini",
           "anthropic/claude-sonnet-4-5",
         ],
@@ -189,14 +189,14 @@ const DEFAULT_RULES: AutoRule[] = [
   {
     when: ["file"],
     candidates: [
-      "google/gemini-3-flash-preview",
+      "google/gemini-3-flash",
       "openai/gpt-5-mini",
       "anthropic/claude-sonnet-4-5",
     ],
   },
   {
     candidates: [
-      "google/gemini-3-flash-preview",
+      "google/gemini-3-flash",
       "openai/gpt-5-mini",
       "anthropic/claude-sonnet-4-5",
       "xai/grok-4-fast-non-reasoning",
@@ -207,7 +207,7 @@ const DEFAULT_RULES: AutoRule[] = [
 const DEFAULT_CLI_MODELS: Record<CliProvider, string> = {
   claude: "sonnet",
   codex: "gpt-5.2",
-  gemini: "gemini-3-flash-preview",
+  gemini: "gemini-3-flash",
   agent: "gpt-5.2",
 };
 

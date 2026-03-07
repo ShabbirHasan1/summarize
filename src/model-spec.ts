@@ -4,7 +4,7 @@ import { normalizeGatewayStyleModelId, parseGatewayStyleModelId } from "./llm/mo
 const DEFAULT_CLI_MODELS: Record<CliProvider, string> = {
   claude: "sonnet",
   codex: "gpt-5.2",
-  gemini: "gemini-3-flash-preview",
+  gemini: "gemini-3-flash",
   agent: "gpt-5.2",
 };
 

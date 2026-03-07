@@ -42,9 +42,9 @@ installed, auto mode can use local CLI models via `cli.enabled` or implicit auto
   - Examples:
     - `cli/codex/gpt-5.2`
     - `cli/claude/sonnet`
-    - `cli/gemini/gemini-3-flash-preview`
+    - `cli/gemini/gemini-3-flash`
     - `cli/agent/gpt-5.2`
-    - `google/gemini-3-flash-preview`
+    - `google/gemini-3-flash`
     - `openai/gpt-5-mini`
     - `nvidia/z-ai/glm5`
     - `zai/glm-4.7`

@@ -526,6 +526,90 @@ describe("llm generate/stream", () => {
     expect((mocks.completeSimple.mock.calls[1]?.[0] as MockModel).id).toBe("gemini-2.5-flash");
   });
 
+  it("accepts Google thinking-only responses without failing empty-summary", async () => {
+    mocks.completeSimple.mockReset();
+    mocks.completeSimple.mockImplementation(async (model: MockModel) =>
+      makeAssistantMessage({
+        provider: model.provider,
+        model: model.id,
+        api: model.api,
+        text: "ok",
+        usage: { input: 1, output: 2, totalTokens: 3 },
+      }),
+    );
+    mocks.completeSimple.mockImplementationOnce(async () => ({
+      ...makeAssistantMessage({
+        provider: "google",
+        model: "gemini-3-flash-preview",
+        api: "google-generative-ai",
+        usage: { input: 1, output: 2, totalTokens: 3 },
+      }),
+      content: [{ type: "thinking" as const, thinking: "ok from thinking" }],
+    }));
+
+    const result = await generateTextWithModelId({
+      modelId: "google/gemini-3-flash-preview",
+      apiKeys: {
+        openaiApiKey: null,
+        xaiApiKey: null,
+        googleApiKey: "k",
+        anthropicApiKey: null,
+        openrouterApiKey: null,
+      },
+      prompt: { userText: "hi" },
+      timeoutMs: 2000,
+      fetchImpl: globalThis.fetch.bind(globalThis),
+      maxOutputTokens: 10,
+    });
+
+    expect(result.text.trim().length).toBeGreaterThan(0);
+  });
+
+  it("falls back from empty Google preview document responses to google/gemini-2.5-flash", async () => {
+    mocks.completeSimple.mockClear();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const body = url.includes("models/gemini-3-flash-preview:generateContent")
+        ? {
+            candidates: [{ content: { parts: [] } }],
+            usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 2, totalTokenCount: 3 },
+          }
+        : {
+            candidates: [{ content: { parts: [{ text: "ok from document fallback" }] } }],
+            usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 2, totalTokenCount: 3 },
+          };
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const pdfBytes = buildMinimalPdf("Hello PDF");
+    const result = await generateTextWithModelId({
+      modelId: "google/gemini-3-flash-preview",
+      apiKeys: {
+        xaiApiKey: null,
+        openaiApiKey: null,
+        googleApiKey: "k",
+        anthropicApiKey: null,
+        openrouterApiKey: null,
+      },
+      prompt: buildDocumentPrompt({
+        text: "Summarize the attached PDF.",
+        bytes: pdfBytes,
+        filename: "test.pdf",
+      }),
+      timeoutMs: 2000,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    expect(result.text).toBe("ok from document fallback");
+    expect(result.canonicalModelId).toBe("google/gemini-2.5-flash");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("models/gemini-3-flash-preview");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("models/gemini-2.5-flash");
+  });
+
   it("surfaces embedded Google API errors instead of reporting an empty summary", async () => {
     mocks.completeSimple.mockClear();
     mocks.completeSimple.mockImplementationOnce(async () => ({
