@@ -14,12 +14,10 @@ import type { ModelAttempt } from "../../types.js";
 import {
   buildLanguageKey,
   buildLengthKey,
+  buildPromptContentHash,
   buildPromptHash,
   buildSummaryCacheKey,
   type CacheState,
-  extractTaggedBlock,
-  hashString,
-  normalizeContentForHash,
 } from "../../../cache.js";
 import { formatOutputLanguageForJson } from "../../../language.js";
 import { parseGatewayStyleModelId } from "../../../llm/model-id.js";
@@ -476,11 +474,7 @@ export async function summarizeAsset(ctx: AssetSummaryContext, args: SummarizeAs
 
   const cacheStore =
     ctx.cache.mode === "default" && !ctx.summaryCacheBypass ? ctx.cache.store : null;
-  const contentBlock = extractTaggedBlock(promptText, "content");
-  const contentHash =
-    cacheStore && contentBlock && contentBlock.trim().length > 0
-      ? hashString(normalizeContentForHash(contentBlock))
-      : null;
+  const contentHash = cacheStore ? buildPromptContentHash({ prompt: promptText }) : null;
   const promptHash = cacheStore ? buildPromptHash(promptText) : null;
   const lengthKey = buildLengthKey(ctx.lengthArg);
   const languageKey = buildLanguageKey(ctx.outputLanguage);

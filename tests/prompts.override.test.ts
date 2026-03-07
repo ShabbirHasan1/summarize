@@ -118,4 +118,34 @@ describe("prompt overrides", () => {
     expect(prompt).toContain("Filename: report.md");
     expect(prompt).toContain("Media type: text/markdown");
   });
+
+  it("keeps required slide marker instructions with custom link prompts", () => {
+    const prompt = buildLinkSummaryPrompt({
+      url: "https://example.com/video",
+      title: "Video",
+      siteName: "YouTube",
+      description: null,
+      content: "Transcript:\nhello",
+      truncated: false,
+      hasTranscript: true,
+      hasTranscriptTimestamps: true,
+      slides: { count: 2, text: "[slide:1] [0:00-0:10]\nhello" },
+      outputLanguage: parseOutputLanguage("en"),
+      summaryLength: "short",
+      shares: [],
+      promptOverride: "Answer only what they say about Peter.",
+      lengthInstruction: null,
+      languageInstruction: null,
+    });
+
+    expect(prompt).toContain("Answer only what they say about Peter.");
+    expect(prompt).toContain(
+      "Required markers (use each exactly once, in order): [slide:1] [slide:2]",
+    );
+    expect(prompt).toContain('Every slide must include a headline line that starts with "## ".');
+    expect(prompt).toContain(
+      'Final check for slides: every [slide:N] must be immediately followed by a line that starts with "## ".',
+    );
+    expect(prompt).not.toContain("You summarize online videos");
+  });
 });

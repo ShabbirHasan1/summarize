@@ -103,6 +103,35 @@ describe("slides summary stream handler", () => {
     expect(titles[0]).toContain("Graphene breakthroughs");
   });
 
+  it("treats bare slide:N] tokens as slide markers instead of visible text", async () => {
+    const { stream, chunks } = makeStdout(false);
+    const renderedSlides: number[] = [];
+    const handler = createSlidesSummaryStreamHandler({
+      stdout: stream,
+      env: {},
+      envForRun: {},
+      plain: true,
+      outputMode: "line",
+      clearProgressForStdout: () => {},
+      renderSlide: async (index) => {
+        renderedSlides.push(index);
+        stream.write(`[SLIDE ${index}]\n`);
+      },
+      getSlideIndexOrder: () => [2],
+    });
+
+    const payload = "Intro line\n\nslide:2]\nAfter";
+    await handler.onChunk({ streamed: payload, prevStreamed: "", appended: payload });
+    await handler.onDone?.(payload);
+
+    const output = chunks.join("");
+    expect(output).toContain("Intro line");
+    expect(output).toContain("[SLIDE 2]");
+    expect(output).toContain("After");
+    expect(output).not.toContain("slide:2]");
+    expect(renderedSlides).toEqual([2]);
+  });
+
   it("handles delta output mode and appends a newline on finalize", async () => {
     const { stream, chunks } = makeStdout(false);
     const handler = createSlidesSummaryStreamHandler({

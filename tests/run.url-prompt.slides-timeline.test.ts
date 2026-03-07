@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ExtractedLinkContent } from "../src/content/index.js";
 import type { SlideExtractionResult } from "../src/slides/types.js";
+import { buildPromptContentHash } from "../src/cache.js";
 import { buildUrlPrompt } from "../src/run/flows/url/summary.js";
 
 const baseExtracted: ExtractedLinkContent = {
@@ -90,5 +91,50 @@ describe("buildUrlPrompt with slides transcript timeline", () => {
     expect(prompt).not.toContain("Slides (OCR):");
     expect(prompt).not.toContain("OCR SHOULD NOT BE USED");
     expect(prompt).not.toContain("Key moments");
+  });
+
+  it("keeps slide formatting instructions even without transcript timed text", () => {
+    const prompt = buildUrlPrompt({
+      extracted: baseExtracted,
+      outputLanguage: { kind: "auto" },
+      lengthArg: { kind: "preset", preset: "short" },
+      promptOverride: null,
+      lengthInstruction: null,
+      languageInstruction: null,
+      slides,
+    });
+
+    expect(prompt).toContain(
+      "Slide format example (follow this pattern; markers on their own lines):",
+    );
+    expect(prompt).toContain(
+      "Required markers (use each exactly once, in order): [slide:1] [slide:2]",
+    );
+    expect(prompt).toContain("Slide timeline (transcript excerpts):");
+  });
+
+  it("changes the prompt content hash when slides are enabled", () => {
+    const promptWithoutSlides = buildUrlPrompt({
+      extracted: baseExtracted,
+      outputLanguage: { kind: "auto" },
+      lengthArg: { kind: "preset", preset: "short" },
+      promptOverride: null,
+      lengthInstruction: null,
+      languageInstruction: null,
+      slides: null,
+    });
+    const promptWithSlides = buildUrlPrompt({
+      extracted: baseExtracted,
+      outputLanguage: { kind: "auto" },
+      lengthArg: { kind: "preset", preset: "short" },
+      promptOverride: null,
+      lengthInstruction: null,
+      languageInstruction: null,
+      slides,
+    });
+
+    expect(buildPromptContentHash({ prompt: promptWithSlides })).not.toBe(
+      buildPromptContentHash({ prompt: promptWithoutSlides }),
+    );
   });
 });

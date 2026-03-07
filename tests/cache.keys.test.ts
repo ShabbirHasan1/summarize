@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildExtractCacheKey, buildSummaryCacheKey, extractTaggedBlock } from "../src/cache.js";
+import {
+  buildExtractCacheKey,
+  buildPromptContentHash,
+  buildSummaryCacheKey,
+  extractTaggedBlock,
+} from "../src/cache.js";
 
 describe("cache keys and tags", () => {
   it("extracts tagged blocks", () => {
@@ -63,5 +68,21 @@ describe("cache keys and tags", () => {
     });
 
     expect(withTimestamps).not.toBe(base);
+  });
+
+  it("hashes the prompt content block instead of a fallback body", () => {
+    const base = buildPromptContentHash({
+      prompt: "<instructions>Do it.</instructions><content>Body</content>",
+      fallbackContent: "fallback",
+    });
+    const withSlides = buildPromptContentHash({
+      prompt:
+        "<instructions>Do it.</instructions><content>Body\n\nSlide timeline:\n[slide:1] hello</content>",
+      fallbackContent: "fallback",
+    });
+
+    expect(base).not.toBeNull();
+    expect(withSlides).not.toBeNull();
+    expect(withSlides).not.toBe(base);
   });
 });

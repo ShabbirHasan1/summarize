@@ -41,13 +41,14 @@ Separate file cache for downloaded media (yt-dlp, direct media URLs). This is **
 - **Summaries**
   - key: `sha256({contentHash, promptHash, model, length, language, formatVersion})`
   - cache hit even if URL differs (content hash wins).
+  - `contentHash` comes from the `<content>` block actually sent to the model (so slide timelines / transcript extras affect the key).
 - **Slides** (manifest + on-disk images in the slides output dir)
   - key: `sha256({url, slideSettings, formatVersion})`
 
 ## Keys / hashes
 
 - `sha256` from Node `crypto` / Bun `crypto`.
-- `contentHash` from normalized extracted content.
+- `contentHash` from normalized prompt `<content>` (fallback: normalized extracted content when no tagged block exists).
 - `promptHash` from instruction block (custom prompt or default).
 - `formatVersion`: hardcoded constant to invalidate on prompt format changes.
 

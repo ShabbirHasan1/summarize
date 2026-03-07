@@ -1,5 +1,6 @@
 export type PromptOverrides = {
   promptOverride?: string | null;
+  requiredInstructions?: string[] | null;
   lengthInstruction?: string | null;
   languageInstruction?: string | null;
 };
@@ -18,6 +19,12 @@ export function buildInstructions({
   } else {
     const trimmedBase = base.trim();
     if (trimmedBase) lines.push(trimmedBase);
+  }
+
+  const requiredInstructions = overrides?.requiredInstructions ?? [];
+  for (const instruction of requiredInstructions) {
+    const trimmed = instruction.trim();
+    if (trimmed) lines.push(trimmed);
   }
 
   const lengthInstruction = overrides?.lengthInstruction?.trim();

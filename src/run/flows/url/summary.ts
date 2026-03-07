@@ -10,10 +10,9 @@ import type { UrlFlowContext } from "./types.js";
 import {
   buildLanguageKey,
   buildLengthKey,
+  buildPromptContentHash,
   buildPromptHash,
   buildSummaryCacheKey,
-  hashString,
-  normalizeContentForHash,
 } from "../../../cache.js";
 import { formatOutputLanguageForJson } from "../../../language.js";
 import { parseGatewayStyleModelId } from "../../../llm/model-id.js";
@@ -211,7 +210,10 @@ export function buildUrlPrompt({
       isYouTube ||
       (extracted.transcriptSource !== null && extracted.transcriptSource !== "unavailable"),
     hasTranscriptTimestamps: Boolean(extracted.transcriptTimedText),
-    slides: slidesText ? { count: slides?.slides.length ?? 0, text: slidesText } : null,
+    slides:
+      slides && slides.slides.length > 0
+        ? { count: slides.slides.length, text: slidesText ?? "" }
+        : null,
     summaryLength:
       lengthArg.kind === "preset" ? lengthArg.preset : { maxCharacters: lengthArg.maxCharacters },
     outputLanguage,
@@ -706,7 +708,9 @@ export async function summarizeExtractedUrl({
 
   const cacheStore =
     cacheState.mode === "default" && !flags.summaryCacheBypass ? cacheState.store : null;
-  const contentHash = cacheStore ? hashString(normalizeContentForHash(extracted.content)) : null;
+  const contentHash = cacheStore
+    ? buildPromptContentHash({ prompt, fallbackContent: extracted.content })
+    : null;
   const promptHash = cacheStore ? buildPromptHash(prompt) : null;
   const lengthKey = buildLengthKey(flags.lengthArg);
   const languageKey = buildLanguageKey(flags.outputLanguage);

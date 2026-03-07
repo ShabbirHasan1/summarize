@@ -366,7 +366,12 @@ export function createSlidesSummaryStreamHandler({
   const slideTagRegex = /\[[^\]]*slide[^\d\]]*(\d+)[^\]]*\]/i;
   const slideLabelRegex =
     /(^|\n)[\t ]*slide\s+(\d+)(?:\s*(?:\/|of)\s*\d+)?(?:\s*[\u00b7:-].*)?(?=\n|$)/i;
+  const bareSlideTagRegex = /(?<=^|\n)[\t ]*slide\s*:\s*(\d+)\](?=\s*(?:\n|$))/i;
   const slideStripRegex = /\[[^\]]*slide[^\]]*\]/gi;
+  const bareSlideStripRegex = /(?<=^|\n)[\t ]*slide\s*:\s*\d+\](?=\s*(?:\n|$))/gi;
+
+  const stripSlideMarkers = (segment: string) =>
+    segment.replace(slideStripRegex, "").replace(bareSlideStripRegex, "");
 
   const handleMarkdownChunk = (nextVisible: string, prevVisible: string) => {
     if (!streamer) return;
@@ -386,7 +391,7 @@ export function createSlidesSummaryStreamHandler({
 
   const pushVisible = (segment: string) => {
     if (!segment) return;
-    const sanitized = segment.replace(slideStripRegex, "");
+    const sanitized = stripSlideMarkers(segment);
     if (!sanitized) return;
     const prevVisible = visible;
     visible += sanitized;
@@ -444,7 +449,7 @@ export function createSlidesSummaryStreamHandler({
 
   const appendVisible = async (segment: string) => {
     if (!segment) return;
-    const sanitized = segment.replace(slideStripRegex, "");
+    const sanitized = stripSlideMarkers(segment);
     if (!sanitized) return;
     if (pendingSlide) {
       pendingSlide.buffer += sanitized;
@@ -464,6 +469,7 @@ export function createSlidesSummaryStreamHandler({
     while (buffered.length > 0) {
       const tagMatch = slideTagRegex.exec(buffered);
       const labelMatch = slideLabelRegex.exec(buffered);
+      const bareTagMatch = bareSlideTagRegex.exec(buffered);
       const lower = buffered.toLowerCase();
       const fallbackStart = lower.indexOf("[slide");
       const fallbackEnd = fallbackStart >= 0 ? buffered.indexOf("]", fallbackStart) : -1;
@@ -472,17 +478,20 @@ export function createSlidesSummaryStreamHandler({
           ? { start: fallbackStart, end: fallbackEnd }
           : null;
       const nextMatch =
-        tagMatch && labelMatch
-          ? (tagMatch.index ?? 0) <= (labelMatch.index ?? 0)
-            ? { kind: "tag" as const, match: tagMatch }
-            : { kind: "label" as const, match: labelMatch }
-          : tagMatch
-            ? { kind: "tag" as const, match: tagMatch }
-            : labelMatch
-              ? { kind: "label" as const, match: labelMatch }
-              : fallbackMatch
-                ? { kind: "fallback" as const, match: fallbackMatch }
-                : null;
+        [
+          tagMatch ? { kind: "tag" as const, index: tagMatch.index ?? 0, match: tagMatch } : null,
+          labelMatch
+            ? { kind: "label" as const, index: labelMatch.index ?? 0, match: labelMatch }
+            : null,
+          bareTagMatch
+            ? { kind: "bare" as const, index: bareTagMatch.index ?? 0, match: bareTagMatch }
+            : null,
+          fallbackMatch
+            ? { kind: "fallback" as const, index: fallbackMatch.start, match: fallbackMatch }
+            : null,
+        ]
+          .filter(Boolean)
+          .sort((a, b) => (a?.index ?? 0) - (b?.index ?? 0))[0] ?? null;
 
       if (!nextMatch) {
         if (final) {
@@ -510,8 +519,7 @@ export function createSlidesSummaryStreamHandler({
         buffered = buffered.slice(start);
         return;
       }
-      const matchIndex =
-        nextMatch.kind === "fallback" ? nextMatch.match.start : (nextMatch.match.index ?? 0);
+      const matchIndex = nextMatch.kind === "fallback" ? nextMatch.match.start : nextMatch.index;
       const matchLength =
         nextMatch.kind === "fallback"
           ? nextMatch.match.end - nextMatch.match.start + 1
@@ -534,7 +542,9 @@ export function createSlidesSummaryStreamHandler({
         const rawIndex =
           nextMatch.kind === "tag"
             ? nextMatch.match[1]
-            : (nextMatch.match[2] ?? nextMatch.match[1]);
+            : nextMatch.kind === "label"
+              ? (nextMatch.match[2] ?? nextMatch.match[1])
+              : nextMatch.match[1];
         index = Number.parseInt(rawIndex ?? "", 10);
       }
       if (debugWrite) {

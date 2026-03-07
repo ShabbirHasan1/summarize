@@ -429,6 +429,18 @@ export function buildPromptHash(prompt: string): string {
   return hashString(instructions.trim());
 }
 
+export function buildPromptContentHash({
+  prompt,
+  fallbackContent,
+}: {
+  prompt: string;
+  fallbackContent?: string | null;
+}): string | null {
+  const content = extractTaggedBlock(prompt, "content") ?? fallbackContent ?? null;
+  if (!content || content.trim().length === 0) return null;
+  return hashString(normalizeContentForHash(content));
+}
+
 export function buildLengthKey(lengthArg: LengthArg): string {
   return lengthArg.kind === "preset"
     ? `preset:${lengthArg.preset}`

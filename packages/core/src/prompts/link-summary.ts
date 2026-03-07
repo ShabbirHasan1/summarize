@@ -203,6 +203,21 @@ export function buildLinkSummaryPrompt({
     hasTranscript || (slides && slides.count > 0)
       ? "Omit sponsor messages, ads, promos, and calls-to-action (including podcast ad reads), even if they appear in the transcript or slide timeline. Do not mention or acknowledge them, and do not say you skipped or ignored anything. Avoid sponsor/ad/promo language, brand names like Squarespace, or CTA phrases like discount code. Treat them as if they do not exist. If a slide segment is purely sponsor/ad content, leave that slide marker with no text."
       : "";
+  const requiredOverrideInstructions =
+    promptOverride && slides && slides.count > 0
+      ? [
+          sponsorInstruction,
+          formattingLine,
+          headingInstruction,
+          "Keep the response compact by avoiding blank lines between sentences or list items; use only the single newlines required by the formatting instructions.",
+          "Do not use emojis, disclaimers, or speculation.",
+          "Write in direct, factual language.",
+          "Format the answer in Markdown.",
+          "Base everything strictly on the provided content and never invent details.",
+          slideInstruction,
+          'Final check for slides: every [slide:N] must be immediately followed by a line that starts with "## ". Remove any "Title:" or "Slide" label lines.',
+        ].filter((line) => typeof line === "string" && line.trim().length > 0)
+      : [];
 
   const baseInstructions = [
     "Hard rules: never mention sponsor/ads; use straight quotation marks only (no curly quotes).",
@@ -234,7 +249,12 @@ export function buildLinkSummaryPrompt({
 
   const instructions = buildInstructions({
     base: baseInstructions,
-    overrides: { promptOverride, lengthInstruction, languageInstruction } satisfies PromptOverrides,
+    overrides: {
+      promptOverride,
+      requiredInstructions: requiredOverrideInstructions,
+      lengthInstruction,
+      languageInstruction,
+    } satisfies PromptOverrides,
   });
   const context = [contextHeader, shareBlock]
     .filter((line) => typeof line === "string" && line.trim().length > 0)
