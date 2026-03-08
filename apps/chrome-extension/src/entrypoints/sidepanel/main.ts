@@ -39,7 +39,6 @@ import {
   mountSidepanelPickers,
   mountSummarizeControl,
 } from "./pickers";
-import { createSlideImageLoader, normalizeSlideImageUrl } from "./slide-images";
 import {
   normalizePanelUrl,
   panelUrlsMatch,
@@ -48,6 +47,7 @@ import {
   shouldAcceptSlidesForCurrentPage,
   shouldInvalidateCurrentSource,
 } from "./session-policy";
+import { createSlideImageLoader, normalizeSlideImageUrl } from "./slide-images";
 import { chooseSlideDescription, sanitizeSlideSummaryTitle } from "./slide-text-policy";
 import { createSlidesHydrator } from "./slides-hydrator";
 import { hasResolvedSlidesPayload } from "./slides-pending";
@@ -3846,7 +3846,10 @@ function handleBgMessage(msg: BgToPanel) {
           currentSourceUrl: panelState.currentSource?.url ?? null,
         })
       ) {
-        pendingSlidesRunsByUrl.set(normalizePanelUrl(targetUrl), { runId: msg.runId, url: targetUrl });
+        pendingSlidesRunsByUrl.set(normalizePanelUrl(targetUrl), {
+          runId: msg.runId,
+          url: targetUrl,
+        });
         return;
       }
       startSlidesStreamForRunId(msg.runId);
