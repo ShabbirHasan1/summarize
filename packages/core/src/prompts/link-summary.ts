@@ -49,6 +49,7 @@ export function buildLinkSummaryPrompt({
   truncated,
   hasTranscript,
   hasTranscriptTimestamps = false,
+  timestampLimitInstruction,
   slides,
   outputLanguage,
   summaryLength,
@@ -65,6 +66,7 @@ export function buildLinkSummaryPrompt({
   truncated: boolean;
   hasTranscript: boolean;
   hasTranscriptTimestamps?: boolean;
+  timestampLimitInstruction?: string | null;
   slides?: { count: number; text: string } | null;
   summaryLength: SummaryLengthTarget;
   outputLanguage?: OutputLanguage | null;
@@ -165,7 +167,12 @@ export function buildLinkSummaryPrompt({
   const shareBlock = shares.length > 0 ? `Tweets from sharers:\n${shareLines.join("\n")}` : "";
   const timestampInstruction =
     hasTranscriptTimestamps && !(slides && slides.count > 0)
-      ? 'Add a "Key moments" section with 3-6 bullets (2-4 if the summary is short). Start each bullet with a [mm:ss] (or [hh:mm:ss]) timestamp from the transcript. Keep the rest of the summary readable and follow the normal formatting guidance; do not prepend timestamps outside the Key moments section. Do not invent timestamps or use ranges.'
+      ? [
+          'Add a "Key moments" section with 3-6 bullets (2-4 if the summary is short). Start each bullet with a [mm:ss] (or [hh:mm:ss]) timestamp from the transcript. Keep the rest of the summary readable and follow the normal formatting guidance; do not prepend timestamps outside the Key moments section. Do not invent timestamps or use ranges.',
+          timestampLimitInstruction ?? "",
+        ]
+          .filter((line) => line.trim().length > 0)
+          .join(" ")
       : "";
   const slideMarkers =
     slides && slides.count > 0

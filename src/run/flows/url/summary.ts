@@ -42,6 +42,12 @@ import {
   interleaveSlidesIntoTranscript,
   normalizeSummarySlideHeadings,
 } from "./slides-text.js";
+import {
+  buildSummaryTimestampLimitInstruction,
+  resolveSummaryTimestampUpperBound,
+  sanitizeSummaryKeyMoments,
+  shouldSanitizeSummaryKeyMoments,
+} from "./summary-timestamps.js";
 import type { UrlFlowContext } from "./types.js";
 
 type SlidesResult = Awaited<
@@ -210,6 +216,7 @@ export function buildUrlPrompt({
       isYouTube ||
       (extracted.transcriptSource !== null && extracted.transcriptSource !== "unavailable"),
     hasTranscriptTimestamps: Boolean(extracted.transcriptTimedText),
+    timestampLimitInstruction: buildSummaryTimestampLimitInstruction(extracted),
     slides:
       slides && slides.slides.length > 0
         ? { count: slides.slides.length, text: slidesText ?? "" }
@@ -625,6 +632,11 @@ export async function summarizeExtractedUrl({
   const promptTokens = countTokens(promptPayload.userText);
   const kindForAuto =
     extracted.siteName === "YouTube" ? ("youtube" as const) : ("website" as const);
+  const hasSlides = Boolean(slides && slides.slides.length > 0);
+  const sanitizeKeyMoments = shouldSanitizeSummaryKeyMoments({ extracted, hasSlides });
+  const timestampUpperBound = sanitizeKeyMoments
+    ? resolveSummaryTimestampUpperBound(extracted)
+    : null;
 
   const attempts: ModelAttempt[] = await (async () => {
     if (model.isFallbackModel) {
@@ -883,7 +895,7 @@ export async function summarizeExtractedUrl({
         model.summaryEngine.runSummaryAttempt({
           attempt,
           prompt: promptPayload,
-          allowStreaming: flags.streamingEnabled,
+          allowStreaming: flags.streamingEnabled && !sanitizeKeyMoments,
           onModelChosen: onModelChosen ?? null,
           streamHandler: slidesOutput?.streamHandler ?? null,
         }),
@@ -942,6 +954,14 @@ export async function summarizeExtractedUrl({
     return;
   }
 
+  const { summary, summaryAlreadyPrinted, modelMeta, maxOutputTokensForCall } = summaryResult;
+  const normalizedSummaryBase =
+    slides && slides.slides.length > 0 ? normalizeSummarySlideHeadings(summary) : summary;
+  const normalizedSummary = sanitizeSummaryKeyMoments({
+    markdown: normalizedSummaryBase,
+    maxSeconds: timestampUpperBound,
+  });
+
   if (!summaryFromCache && cacheStore && contentHash && promptHash) {
     const perModelKey = buildSummaryCacheKey({
       contentHash,
@@ -950,7 +970,7 @@ export async function summarizeExtractedUrl({
       lengthKey,
       languageKey,
     });
-    cacheStore.setText("summary", perModelKey, summaryResult.summary, cacheState.ttlMs);
+    cacheStore.setText("summary", perModelKey, normalizedSummary, cacheState.ttlMs);
     writeVerbose(io.stderr, flags.verbose, "cache write summary", flags.verboseColor, io.envForRun);
     if (autoSelectionCacheModel) {
       const selectionKey = buildSummaryCacheKey({
@@ -963,7 +983,7 @@ export async function summarizeExtractedUrl({
       cacheStore.setJson(
         "summary",
         selectionKey,
-        { summary: summaryResult.summary, model: usedAttempt.userModelId },
+        { summary: normalizedSummary, model: usedAttempt.userModelId },
         cacheState.ttlMs,
       );
       writeVerbose(
@@ -986,10 +1006,6 @@ export async function summarizeExtractedUrl({
       provider: usedAttempt.cliProvider,
     });
   }
-
-  const { summary, summaryAlreadyPrinted, modelMeta, maxOutputTokensForCall } = summaryResult;
-  const normalizedSummary =
-    slides && slides.slides.length > 0 ? normalizeSummarySlideHeadings(summary) : summary;
 
   if (flags.json) {
     const finishReport = flags.shouldComputeReport ? await hooks.buildReport() : null;
