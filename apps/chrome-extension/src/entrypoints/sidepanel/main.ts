@@ -24,6 +24,7 @@ import {
   createChatHistoryStore,
   normalizeStoredMessage,
 } from "./chat-history-store";
+import { createChatQueueRuntime } from "./chat-queue-runtime";
 import { createChatSession } from "./chat-session";
 import { type ChatHistoryLimits } from "./chat-state";
 import { createChatStreamRuntime } from "./chat-stream-runtime";
@@ -266,12 +267,6 @@ const chatLimits: ChatHistoryLimits = {
   maxMessages: MAX_CHAT_MESSAGES,
   maxChars: MAX_CHAT_CHARACTERS,
 };
-type ChatQueueItem = {
-  id: string;
-  text: string;
-  createdAt: number;
-};
-let chatQueue: ChatQueueItem[] = [];
 let activeTabId: number | null = null;
 let activeTabUrl: string | null = null;
 let lastPanelOpen = false;
@@ -712,64 +707,6 @@ function refreshSummarizeControl() {
   });
 }
 
-function normalizeQueueText(input: string) {
-  return input.replace(/\s+/g, " ").trim();
-}
-
-function renderChatQueue() {
-  if (chatQueue.length === 0) {
-    chatQueueEl.classList.add("isHidden");
-    chatQueueEl.replaceChildren();
-    return;
-  }
-  chatQueueEl.classList.remove("isHidden");
-  chatQueueEl.replaceChildren();
-
-  for (const item of chatQueue) {
-    const row = document.createElement("div");
-    row.className = "chatQueueItem";
-    row.dataset.id = item.id;
-
-    const text = document.createElement("div");
-    text.className = "chatQueueText";
-    text.textContent = item.text;
-    text.title = item.text;
-
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "chatQueueRemove";
-    remove.textContent = "x";
-    remove.setAttribute("aria-label", "Remove queued message");
-    remove.addEventListener("click", () => removeQueuedMessage(item.id));
-
-    row.append(text, remove);
-    chatQueueEl.append(row);
-  }
-}
-
-function enqueueChatMessage(input: string): boolean {
-  const text = normalizeQueueText(input);
-  if (!text) return false;
-  if (chatQueue.length >= MAX_CHAT_QUEUE) {
-    headerController.setStatus(`Queue full (${MAX_CHAT_QUEUE}). Remove one to add more.`);
-    return false;
-  }
-  chatQueue.push({ id: crypto.randomUUID(), text, createdAt: Date.now() });
-  renderChatQueue();
-  return true;
-}
-
-function removeQueuedMessage(id: string) {
-  chatQueue = chatQueue.filter((item) => item.id !== id);
-  renderChatQueue();
-}
-
-function clearQueuedMessages() {
-  if (chatQueue.length === 0) return;
-  chatQueue = [];
-  renderChatQueue();
-}
-
 const isStreaming = () => panelState.phase === "connecting" || panelState.phase === "streaming";
 
 const optionsTabStorageKey = "summarize:options-tab";
@@ -810,6 +747,13 @@ const errorController = createErrorController({
   onRetry: () => retryLastAction(),
   onOpenLogs: () => openOptionsTab("logs"),
   onPanelVisibilityChange: () => headerController.updateHeaderOffset(),
+});
+const chatQueueRuntime = createChatQueueRuntime({
+  chatQueueEl,
+  maxQueue: MAX_CHAT_QUEUE,
+  setStatus: (value) => {
+    headerController.setStatus(value);
+  },
 });
 
 slideNoticeRetryBtn.addEventListener("click", () => {
@@ -1905,7 +1849,7 @@ function seedPlannedSlidesForRun(run: RunStart) {
 function resetChatState() {
   panelState.chatStreaming = false;
   chatController.reset();
-  clearQueuedMessages();
+  chatQueueRuntime.clearQueuedMessages();
   chatJumpBtn.classList.remove("isVisible");
   chatSession.reset();
   lastNavigationMessageUrl = null;
@@ -1938,9 +1882,9 @@ const chatStreamRuntime = createChatStreamRuntime({
   addUserMessage: (text) => {
     chatController.addMessage(wrapMessage({ role: "user", content: text, timestamp: Date.now() }));
   },
-  dequeueQueuedMessage: () => chatQueue.shift(),
-  getQueuedChatCount: () => chatQueue.length,
-  renderChatQueue,
+  dequeueQueuedMessage: chatQueueRuntime.dequeueQueuedMessage,
+  getQueuedChatCount: chatQueueRuntime.getQueueLength,
+  renderChatQueue: chatQueueRuntime.renderChatQueue,
   focusInput: () => {
     chatInputEl.focus();
   },
@@ -1985,8 +1929,8 @@ function sendChatMessage() {
   chatInputEl.style.height = "auto";
 
   const chatBusy = panelState.chatStreaming;
-  if (chatBusy || chatQueue.length > 0) {
-    const queued = enqueueChatMessage(input);
+  if (chatBusy || chatQueueRuntime.getQueueLength() > 0) {
+    const queued = chatQueueRuntime.enqueueChatMessage(input);
     if (!queued) {
       chatInputEl.value = rawInput;
       chatInputEl.style.height = `${Math.min(chatInputEl.scrollHeight, 120)}px`;
