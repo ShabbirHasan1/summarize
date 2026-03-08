@@ -4,7 +4,10 @@ import { TRANSCRIPTION_TIMEOUT_MS } from "./constants.js";
 import { toArrayBuffer, wrapError } from "./utils.js";
 
 const ASSEMBLYAI_BASE_URL = "https://api.assemblyai.com/v2";
-const ASSEMBLYAI_DEFAULT_MODELS = ["universal-2"] as const;
+export const ASSEMBLYAI_DEFAULT_SPEECH_MODEL = "universal-2";
+export const ASSEMBLYAI_DEFAULT_MODELS = [ASSEMBLYAI_DEFAULT_SPEECH_MODEL] as const;
+export const ASSEMBLYAI_TRANSCRIPTION_MODEL_ID =
+  `assemblyai/${ASSEMBLYAI_DEFAULT_SPEECH_MODEL}` as const;
 const ASSEMBLYAI_POLL_INTERVAL_MS = 1_500;
 
 type AssemblyAiOptions = {
@@ -130,6 +133,38 @@ async function pollAssemblyAiTranscript(
   }
 }
 
+async function transcribeUploadedAudioWithAssemblyAi(
+  body: BodyInit,
+  apiKey: string,
+  {
+    fetchImpl,
+    baseUrl,
+    mediaType,
+    pollIntervalMs,
+    timeoutMs,
+  }: Pick<
+    AssemblyAiOptions,
+    "fetchImpl" | "baseUrl" | "mediaType" | "pollIntervalMs" | "timeoutMs"
+  >,
+): Promise<string | null> {
+  const uploadUrl = await uploadViaAssemblyAi(body, apiKey, {
+    fetchImpl,
+    baseUrl,
+    mediaType,
+  });
+  const started = await submitAssemblyAiTranscript(uploadUrl, apiKey, {
+    fetchImpl,
+    baseUrl,
+  });
+  if (started.status.trim().toLowerCase() === "completed") return started.text;
+  return await pollAssemblyAiTranscript(started.id, apiKey, {
+    fetchImpl,
+    baseUrl,
+    pollIntervalMs,
+    timeoutMs,
+  });
+}
+
 export async function transcribeWithAssemblyAi(
   bytes: Uint8Array,
   mediaType: string,
@@ -137,21 +172,14 @@ export async function transcribeWithAssemblyAi(
   options: AssemblyAiOptions = {},
 ): Promise<string | null> {
   try {
-    const uploadUrl = await uploadViaAssemblyAi(
+    return await transcribeUploadedAudioWithAssemblyAi(
       new Blob([toArrayBuffer(bytes)], { type: mediaType }),
       apiKey,
       {
-        fetchImpl: options.fetchImpl,
-        baseUrl: options.baseUrl,
         mediaType,
+        ...options,
       },
     );
-    const started = await submitAssemblyAiTranscript(uploadUrl, apiKey, {
-      fetchImpl: options.fetchImpl,
-      baseUrl: options.baseUrl,
-    });
-    if (started.status.trim().toLowerCase() === "completed") return started.text;
-    return await pollAssemblyAiTranscript(started.id, apiKey, options);
   } catch (error) {
     throw wrapError("AssemblyAI transcription failed", error);
   }
@@ -173,26 +201,17 @@ export async function transcribeFileWithAssemblyAi({
   string | null
 > {
   try {
-    const uploadUrl = await uploadViaAssemblyAi(
+    return await transcribeUploadedAudioWithAssemblyAi(
       await openAsBlob(filePath, { type: mediaType }),
       apiKey,
       {
+        mediaType,
         fetchImpl,
         baseUrl,
-        mediaType,
+        pollIntervalMs,
+        timeoutMs,
       },
     );
-    const started = await submitAssemblyAiTranscript(uploadUrl, apiKey, {
-      fetchImpl,
-      baseUrl,
-    });
-    if (started.status.trim().toLowerCase() === "completed") return started.text;
-    return await pollAssemblyAiTranscript(started.id, apiKey, {
-      fetchImpl,
-      baseUrl,
-      pollIntervalMs,
-      timeoutMs,
-    });
   } catch (error) {
     throw wrapError("AssemblyAI transcription failed", error);
   }

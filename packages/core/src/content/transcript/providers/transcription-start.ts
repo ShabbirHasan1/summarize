@@ -4,6 +4,10 @@ import {
   isWhisperCppReady,
   resolveWhisperCppModelNameForDisplay,
 } from "../../../transcription/whisper.js";
+import {
+  buildCloudModelIdChain,
+  buildCloudProviderHint,
+} from "../../../transcription/whisper/cloud-providers.js";
 import { resolveGeminiTranscriptionModel } from "../../../transcription/whisper/provider-setup.js";
 import { resolveTranscriptionConfig, type TranscriptionConfig } from "../transcription-config.js";
 
@@ -127,24 +131,27 @@ export async function resolveTranscriptionStartInfo({
 }
 
 function resolveCloudModelId(availability: TranscriptionAvailability): string | null {
-  const parts: string[] = [];
-  if (availability.hasGroq) parts.push("groq/whisper-large-v3-turbo");
-  if (availability.hasAssemblyAi) parts.push("assemblyai/universal-2");
-  if (availability.hasGemini) parts.push(`google/${availability.geminiModelId}`);
-  if (availability.hasOpenai) parts.push("whisper-1");
-  if (availability.hasFal) parts.push("fal-ai/wizper");
-  return parts.length > 0 ? parts.join("->") : null;
+  const cloudModelId = buildCloudModelIdChain({
+    availability,
+    geminiModelId: availability.geminiModelId,
+  });
+  if (!availability.hasGroq) return cloudModelId;
+  return cloudModelId
+    ? `groq/whisper-large-v3-turbo->${cloudModelId}`
+    : "groq/whisper-large-v3-turbo";
 }
 
 function resolveCloudProviderHint(
   availability: TranscriptionAvailability,
 ): TranscriptionProviderHint {
-  const parts: string[] = [];
-  if (availability.hasGroq) parts.push("groq");
-  if (availability.hasAssemblyAi) parts.push("assemblyai");
-  if (availability.hasGemini) parts.push("gemini");
-  if (availability.hasOpenai) parts.push("openai");
-  if (availability.hasFal) parts.push("fal");
-  const chain = parts.join("->");
+  const cloudHint = buildCloudProviderHint({
+    hasAssemblyAi: availability.hasAssemblyAi,
+    hasGemini: availability.hasGemini,
+    hasOpenai: availability.hasOpenai,
+    hasFal: availability.hasFal,
+  });
+  const chain = availability.hasGroq
+    ? ["groq", cloudHint].filter(Boolean).join("->")
+    : (cloudHint ?? "");
   return chain.length > 0 ? (chain as TranscriptionProviderHint) : "unknown";
 }

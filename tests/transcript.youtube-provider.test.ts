@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { stubMissingTranscriptionEnv } from "./helpers/transcription-env.js";
 
 const api = vi.hoisted(() => ({
   extractYoutubeiTranscriptConfig: vi.fn(),
@@ -38,10 +39,7 @@ const baseOptions = {
 describe("YouTube transcript provider module", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv("SUMMARIZE_DISABLE_LOCAL_WHISPER_CPP", "1");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
-    vi.stubEnv("GOOGLE_API_KEY", "");
+    stubMissingTranscriptionEnv();
     api.extractYoutubeiTranscriptConfig.mockReturnValue(null);
     api.fetchTranscriptFromTranscriptEndpoint.mockResolvedValue(null);
     captions.fetchTranscriptFromCaptionTracks.mockResolvedValue(null);

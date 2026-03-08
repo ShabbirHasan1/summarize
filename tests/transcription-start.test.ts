@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ASSEMBLYAI_TRANSCRIPTION_MODEL_ID } from "../packages/core/src/transcription/whisper/assemblyai.js";
 
 const whisperMock = vi.hoisted(() => ({
   isWhisperCppReady: vi.fn(),
@@ -94,7 +95,7 @@ describe("transcription start helper", () => {
     expect(startInfo.availability.hasAnyProvider).toBe(true);
     expect(startInfo.availability.hasAssemblyAi).toBe(true);
     expect(startInfo.providerHint).toBe("assemblyai");
-    expect(startInfo.modelId).toBe("assemblyai/universal-2");
+    expect(startInfo.modelId).toBe(ASSEMBLYAI_TRANSCRIPTION_MODEL_ID);
   });
 
   it("reports groq->assemblyai->gemini->openai when all preferred cloud fallbacks exist", async () => {
@@ -112,7 +113,7 @@ describe("transcription start helper", () => {
 
     expect(startInfo.providerHint).toBe("groq->assemblyai->gemini->openai");
     expect(startInfo.modelId).toBe(
-      "groq/whisper-large-v3-turbo->assemblyai/universal-2->google/gemini-2.5-flash->whisper-1",
+      `groq/whisper-large-v3-turbo->${ASSEMBLYAI_TRANSCRIPTION_MODEL_ID}->google/gemini-2.5-flash->whisper-1`,
     );
   });
 

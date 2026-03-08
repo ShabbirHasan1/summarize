@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchTranscript } from "../packages/core/src/content/transcript/providers/podcast.js";
+import { stubMissingTranscriptionEnv } from "./helpers/transcription-env.js";
 
 const baseOptions = {
   fetch: vi.fn() as unknown as typeof fetch,
@@ -14,10 +15,7 @@ const baseOptions = {
 
 describe("podcast transcript provider module", () => {
   beforeEach(() => {
-    vi.stubEnv("SUMMARIZE_DISABLE_LOCAL_WHISPER_CPP", "1");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
-    vi.stubEnv("GOOGLE_API_KEY", "");
+    stubMissingTranscriptionEnv();
   });
 
   it("returns a helpful message only when transcription is required but unavailable", async () => {

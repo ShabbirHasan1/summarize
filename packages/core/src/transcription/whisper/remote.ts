@@ -4,6 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WhisperProgressEvent, WhisperTranscriptionResult } from "./types.js";
 import { transcribeWithAssemblyAi, transcribeFileWithAssemblyAi } from "./assemblyai.js";
+import {
+  cloudProviderLabel,
+  formatCloudFallbackTargets,
+  resolveCloudProviderOrder,
+  type CloudProvider,
+} from "./cloud-providers.js";
 import { DEFAULT_SEGMENT_SECONDS, MAX_OPENAI_UPLOAD_BYTES } from "./constants.js";
 import { transcribeWithFal } from "./fal.js";
 import { isFfmpegAvailable, transcodeBytesToMp3 } from "./ffmpeg.js";
@@ -13,7 +19,6 @@ import { buildMissingTranscriptionProviderMessage } from "./provider-setup.js";
 import { formatBytes, readFirstBytes, wrapError } from "./utils.js";
 
 type Env = Record<string, string | undefined>;
-type CloudProvider = "assemblyai" | "gemini" | "openai" | "fal";
 
 type CloudArgs = {
   groqApiKey: string | null;
@@ -36,34 +41,6 @@ function withMergedNotes(
 ): WhisperTranscriptionResult {
   if (result.notes.length === 0) return { ...result, notes };
   return { ...result, notes: [...notes, ...result.notes] };
-}
-
-function resolveCloudProviderOrder({
-  assemblyaiApiKey,
-  geminiApiKey,
-  openaiApiKey,
-  falApiKey,
-}: Pick<
-  CloudArgs,
-  "assemblyaiApiKey" | "geminiApiKey" | "openaiApiKey" | "falApiKey"
->): CloudProvider[] {
-  const order: CloudProvider[] = [];
-  if (assemblyaiApiKey) order.push("assemblyai");
-  if (geminiApiKey) order.push("gemini");
-  if (openaiApiKey) order.push("openai");
-  if (falApiKey) order.push("fal");
-  return order;
-}
-
-function cloudProviderLabel(provider: CloudProvider, chained: boolean): string {
-  if (provider === "assemblyai") return "AssemblyAI";
-  if (provider === "gemini") return "Gemini";
-  if (provider === "openai") return chained ? "OpenAI" : "Whisper/OpenAI";
-  return chained ? "FAL" : "Whisper/FAL";
-}
-
-function formatFallbackTargets(providers: CloudProvider[]): string {
-  return providers.map((provider) => cloudProviderLabel(provider, true)).join("/");
 }
 
 function buildNoProviderResult({
@@ -254,7 +231,7 @@ async function transcribeBytesAcrossProviders({
     });
     if (remaining.length > 0) {
       notes.push(
-        `${cloudProviderLabel(provider, false)} transcription failed; falling back to ${formatFallbackTargets(remaining)}: ${error.message}`,
+        `${cloudProviderLabel(provider, false)} transcription failed; falling back to ${formatCloudFallbackTargets(remaining)}: ${error.message}`,
       );
     }
   }
@@ -472,7 +449,7 @@ export async function transcribeFileWithRemoteFallbacks({
     const remaining = providerOrder.slice(index + 1);
     if (remaining.length > 0) {
       notes.push(
-        `${cloudProviderLabel(provider, false)} transcription failed; falling back to ${formatFallbackTargets(remaining)}: ${error.message}`,
+        `${cloudProviderLabel(provider, false)} transcription failed; falling back to ${formatCloudFallbackTargets(remaining)}: ${error.message}`,
       );
     }
   }

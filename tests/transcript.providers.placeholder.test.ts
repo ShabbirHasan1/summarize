@@ -3,6 +3,7 @@ import type {
   ProviderContext,
   ProviderFetchOptions,
 } from "../packages/core/src/content/transcript/types.js";
+import { stubMissingTranscriptionEnv } from "./helpers/transcription-env.js";
 
 const mocks = vi.hoisted(() => ({
   fetchTranscriptWithYtDlp: vi.fn(),
@@ -25,10 +26,7 @@ describe("placeholder transcript providers", () => {
   beforeEach(() => {
     mocks.fetchTranscriptWithYtDlp.mockReset();
     mocks.isWhisperCppReady.mockReset();
-    vi.stubEnv("SUMMARIZE_DISABLE_LOCAL_WHISPER_CPP", "1");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
-    vi.stubEnv("GOOGLE_API_KEY", "");
+    stubMissingTranscriptionEnv();
   });
 
   it("matches podcast URLs", async () => {

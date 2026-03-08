@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createLinkPreviewClient } from "../src/content/index.js";
+import { stubMissingTranscriptionEnv } from "./helpers/transcription-env.js";
 
 const jsonResponse = (payload: unknown, status = 200) =>
   Response.json(payload, {
@@ -15,10 +16,7 @@ const htmlResponse = (html: string, status = 200) =>
 
 describe("link preview extraction (YouTube mode)", () => {
   beforeEach(() => {
-    vi.stubEnv("SUMMARIZE_DISABLE_LOCAL_WHISPER_CPP", "1");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
-    vi.stubEnv("GOOGLE_API_KEY", "");
+    stubMissingTranscriptionEnv();
   });
 
   const html =
