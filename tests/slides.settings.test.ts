@@ -22,9 +22,39 @@ describe("resolveSlideSettings", () => {
     expect(settings?.ocr).toBe(true);
   });
 
+  it("parses string flags and custom values", () => {
+    const settings = resolveSlideSettings({
+      slides: "yes",
+      slidesOcr: "off",
+      slidesDir: "captures",
+      slidesSceneThreshold: "0.45",
+      slidesMax: "8",
+      slidesMinDuration: "5",
+      cwd: "/tmp",
+    });
+    expect(settings).toEqual({
+      enabled: true,
+      ocr: false,
+      outputDir: "/tmp/captures",
+      sceneThreshold: 0.45,
+      autoTuneThreshold: true,
+      maxSlides: 8,
+      minDurationSeconds: 5,
+    });
+  });
+
   it("rejects invalid scene threshold", () => {
     expect(() =>
       resolveSlideSettings({ slides: true, slidesSceneThreshold: "2", cwd: "/tmp" }),
     ).toThrow(/slides-scene-threshold/i);
+  });
+
+  it("rejects invalid max slides and min duration", () => {
+    expect(() => resolveSlideSettings({ slides: true, slidesMax: "0", cwd: "/tmp" })).toThrow(
+      /slides-max/i,
+    );
+    expect(() =>
+      resolveSlideSettings({ slides: true, slidesMinDuration: "-1", cwd: "/tmp" }),
+    ).toThrow(/slides-min-duration/i);
   });
 });
