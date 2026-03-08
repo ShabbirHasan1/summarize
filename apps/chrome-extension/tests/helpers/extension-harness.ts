@@ -464,6 +464,11 @@ export async function openExtensionPage(
 ) {
   const page = await harness.context.newPage();
   trackErrors(page, harness.pageErrors, harness.consoleErrors);
+  await page.addInitScript(() => {
+    (
+      window as typeof globalThis & { __summarizeTestHooks?: Record<string, unknown> }
+    ).__summarizeTestHooks = {};
+  });
   if (initScript) {
     await page.addInitScript(initScript);
   }

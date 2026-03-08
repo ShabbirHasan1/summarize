@@ -1456,6 +1456,8 @@ const slidesTestHooks = (
       getSlidesSummaryMarkdown?: () => string;
       getSlidesSummaryComplete?: () => boolean;
       getSlidesSummaryModel?: () => string | null;
+      getChatEnabled?: () => boolean;
+      getSettingsHydrated?: () => boolean;
       setTranscriptTimedText?: (value: string | null) => void;
       setSummarizeMode?: (payload: { mode: "page" | "video"; slides: boolean }) => Promise<void>;
       getSummarizeMode?: () => { mode: "page" | "video"; slides: boolean; mediaAvailable: boolean };
@@ -1488,6 +1490,8 @@ if (slidesTestHooks) {
   slidesTestHooks.getSlidesSummaryMarkdown = () => slidesSummaryMarkdown;
   slidesTestHooks.getSlidesSummaryComplete = () => slidesSummaryComplete;
   slidesTestHooks.getSlidesSummaryModel = () => slidesSummaryModel;
+  slidesTestHooks.getChatEnabled = () => chatEnabledValue;
+  slidesTestHooks.getSettingsHydrated = () => settingsHydrated;
   slidesTestHooks.setTranscriptTimedText = (value) => {
     setSlidesTranscriptTimedText(value);
     updateSlidesTextState();

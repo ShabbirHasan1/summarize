@@ -16,6 +16,7 @@ import {
   waitForPanelPort,
 } from "./helpers/extension-harness";
 import { allowFirefoxExtensionTests } from "./helpers/extension-test-config";
+import { waitForChatEnabled, waitForSettingsHydratedHook } from "./helpers/panel-hooks";
 
 test.skip(
   ({ browserName }) => browserName === "firefox" && !allowFirefoxExtensionTests,
@@ -73,9 +74,13 @@ test("sidepanel updates chat visibility when settings change", async ({
       (window as typeof globalThis & { IntersectionObserver?: unknown }).IntersectionObserver =
         undefined;
     });
+    await waitForPanelPort(page);
+    await waitForSettingsHydratedHook(page);
+    await waitForChatEnabled(page, true);
     await expect(page.locator("#chatDock")).toBeVisible();
 
     await updateSettings(page, { chatEnabled: false });
+    await waitForChatEnabled(page, false);
     await expect(page.locator("#chatDock")).toBeHidden();
     await expect(page.locator("#chatContainer")).toBeHidden();
     assertNoErrors(harness);

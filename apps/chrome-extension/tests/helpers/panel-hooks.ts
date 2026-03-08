@@ -129,6 +129,63 @@ export async function waitForApplySlidesHook(page: Page) {
   );
 }
 
+export async function waitForTranscriptTimedTextHook(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const hooks = (
+        window as typeof globalThis & {
+          __summarizeTestHooks?: {
+            getTranscriptTimedText?: () => string | null;
+            setTranscriptTimedText?: (value: string | null) => void;
+          };
+        }
+      ).__summarizeTestHooks;
+      return (
+        typeof hooks?.getTranscriptTimedText === "function" &&
+        typeof hooks?.setTranscriptTimedText === "function"
+      );
+    },
+    null,
+    { timeout: 5_000 },
+  );
+}
+
+export async function waitForSettingsHydratedHook(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const hooks = (
+        window as typeof globalThis & {
+          __summarizeTestHooks?: {
+            getSettingsHydrated?: () => boolean;
+            getChatEnabled?: () => boolean;
+          };
+        }
+      ).__summarizeTestHooks;
+      return (
+        typeof hooks?.getSettingsHydrated === "function" &&
+        typeof hooks?.getChatEnabled === "function"
+      );
+    },
+    null,
+    { timeout: 5_000 },
+  );
+}
+
+export async function waitForChatEnabled(page: Page, expected: boolean) {
+  await page.waitForFunction(
+    (target) => {
+      const hooks = (
+        window as typeof globalThis & {
+          __summarizeTestHooks?: { getChatEnabled?: () => boolean };
+        }
+      ).__summarizeTestHooks;
+      return hooks?.getChatEnabled?.() === target;
+    },
+    expected,
+    { timeout: 5_000 },
+  );
+}
+
 export async function applySlidesPayload(page: Page, payload: unknown) {
   await page.evaluate((value) => {
     const hooks = (
