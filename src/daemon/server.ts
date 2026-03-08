@@ -47,6 +47,7 @@ import {
   type Session,
   type SessionEvent,
 } from "./server-session.js";
+import { attachBufferedSseSession } from "./server-sse.js";
 import {
   extractContentForUrl,
   streamSummaryForUrl,
@@ -1079,31 +1080,12 @@ export async function runDaemonServer({
           return;
         }
 
-        res.writeHead(200, {
-          ...cors,
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache, no-transform",
-          connection: "keep-alive",
-        });
-        session.clients.add(res);
-
-        for (const entry of session.buffer) {
-          res.write(encodeSseEvent(entry.event));
-        }
-        if (session.done) {
-          res.end();
-          session.clients.delete(res);
-          return;
-        }
-
-        const keepalive = setInterval(() => {
-          res.write(`: keepalive ${Date.now()}\n\n`);
-        }, 15_000);
-        keepalive.unref();
-
-        res.on("close", () => {
-          clearInterval(keepalive);
-          session.clients.delete(res);
+        attachBufferedSseSession({
+          res,
+          cors,
+          buffer: session.buffer,
+          clients: session.clients,
+          done: session.done,
         });
         return;
       }
@@ -1121,47 +1103,34 @@ export async function runDaemonServer({
           return;
         }
 
-        res.writeHead(200, {
-          ...cors,
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache, no-transform",
-          connection: "keep-alive",
-        });
-        session.slidesClients.add(res);
+        attachBufferedSseSession({
+          res,
+          cors,
+          buffer: session.slidesBuffer,
+          clients: session.slidesClients,
+          done: session.slidesDone,
+          afterReplay: () => {
+            const hasSlidesEvent = session.slidesBuffer.some(
+              (entry) => entry.event.event === "slides",
+            );
+            if (!hasSlidesEvent && session.slides) {
+              res.write(
+                encodeSseEvent({
+                  event: "slides",
+                  data: buildSlidesPayload({ slides: session.slides, port }),
+                }),
+              );
+            }
 
-        for (const entry of session.slidesBuffer) {
-          res.write(encodeSseEvent(entry.event));
-        }
-
-        const hasSlidesEvent = session.slidesBuffer.some((entry) => entry.event.event === "slides");
-        if (!hasSlidesEvent && session.slides) {
-          res.write(
-            encodeSseEvent({
-              event: "slides",
-              data: buildSlidesPayload({ slides: session.slides, port }),
-            }),
-          );
-        }
-
-        const hasStatusEvent = session.slidesBuffer.some((entry) => entry.event.event === "status");
-        if (!hasStatusEvent && session.slidesLastStatus) {
-          res.write(encodeSseEvent({ event: "status", data: { text: session.slidesLastStatus } }));
-        }
-
-        if (session.slidesDone) {
-          res.end();
-          session.slidesClients.delete(res);
-          return;
-        }
-
-        const keepalive = setInterval(() => {
-          res.write(`: keepalive ${Date.now()}\n\n`);
-        }, 15_000);
-        keepalive.unref();
-
-        res.on("close", () => {
-          clearInterval(keepalive);
-          session.slidesClients.delete(res);
+            const hasStatusEvent = session.slidesBuffer.some(
+              (entry) => entry.event.event === "status",
+            );
+            if (!hasStatusEvent && session.slidesLastStatus) {
+              res.write(
+                encodeSseEvent({ event: "status", data: { text: session.slidesLastStatus } }),
+              );
+            }
+          },
         });
         return;
       }
@@ -1179,31 +1148,12 @@ export async function runDaemonServer({
           return;
         }
 
-        res.writeHead(200, {
-          ...cors,
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache, no-transform",
-          connection: "keep-alive",
-        });
-        session.clients.add(res);
-
-        for (const entry of session.buffer) {
-          res.write(encodeSseEvent(entry.event));
-        }
-        if (session.done) {
-          res.end();
-          session.clients.delete(res);
-          return;
-        }
-
-        const keepalive = setInterval(() => {
-          res.write(`: keepalive ${Date.now()}\n\n`);
-        }, 15_000);
-        keepalive.unref();
-
-        res.on("close", () => {
-          clearInterval(keepalive);
-          session.clients.delete(res);
+        attachBufferedSseSession({
+          res,
+          cors,
+          buffer: session.buffer,
+          clients: session.clients,
+          done: session.done,
         });
         return;
       }
