@@ -32,6 +32,7 @@ import { createChatStreamRuntime } from "./chat-stream-runtime";
 import { createDrawerControls } from "./drawer-controls";
 import { createErrorController } from "./error-controller";
 import { createHeaderController } from "./header-controller";
+import { createSidepanelInteractionRuntime } from "./interaction-runtime";
 import { createMetricsController } from "./metrics-controller";
 import { createModelPresetsController } from "./model-presets";
 import { createNavigationRuntime } from "./navigation-runtime";
@@ -1757,23 +1758,54 @@ function scheduleAutoKick() {
   }, 350);
 }
 
-async function send(message: PanelToBg) {
-  if (message.type === "panel:summarize") {
-    lastAction = "summarize";
-  } else if (message.type === "panel:agent") {
-    lastAction = "chat";
-  }
-  await panelPortRuntime.send(message);
-}
-
-function sendSummarize(opts?: { refresh?: boolean }) {
-  errorController.clearInlineError();
-  void send({
-    type: "panel:summarize",
-    refresh: Boolean(opts?.refresh),
-    inputMode: inputModeOverride ?? undefined,
-  });
-}
+const interactionRuntime = createSidepanelInteractionRuntime({
+  sendRawMessage: (message) => panelPortRuntime.send(message as PanelToBg),
+  setLastAction: (value) => {
+    lastAction = value;
+  },
+  clearInlineError: () => {
+    errorController.clearInlineError();
+  },
+  getInputModeOverride: () => inputModeOverride,
+  retryChat: () => {
+    chatStreamRuntime.retryChat();
+  },
+  chatEnabled: () => chatEnabledValue,
+  getRawChatInput: () => chatInputEl.value,
+  clearChatInput: () => {
+    chatInputEl.value = "";
+    chatInputEl.style.height = "auto";
+  },
+  restoreChatInput: (value) => {
+    chatInputEl.value = value;
+  },
+  getChatInputScrollHeight: () => chatInputEl.scrollHeight,
+  setChatInputHeight: (value) => {
+    chatInputEl.style.height = value;
+  },
+  isChatStreaming: () => panelState.chatStreaming,
+  getQueuedChatCount: () => chatQueueRuntime.getQueueLength(),
+  enqueueChatMessage: (value) => chatQueueRuntime.enqueueChatMessage(value),
+  maybeSendQueuedChat: () => {
+    chatStreamRuntime.maybeSendQueuedChat();
+  },
+  startChatMessage: (value) => {
+    chatStreamRuntime.startChatMessage(value);
+  },
+  typographyController,
+  patchSettings,
+  updateModelRowUI,
+  isCustomModelHidden: () => modelCustomEl.hidden,
+  focusCustomModel: () => {
+    modelCustomEl.focus();
+  },
+  blurCustomModel: () => {
+    modelCustomEl.blur();
+  },
+  readCurrentModelValue,
+});
+const { send, sendSummarize, sendChatMessage, bumpFontSize, bumpLineHeight, persistCurrentModel } =
+  interactionRuntime;
 
 function seedPlannedSlidesForRun(run: RunStart) {
   const durationSeconds = summarizeVideoDurationSeconds;
@@ -1906,68 +1938,8 @@ const chatStreamRuntime = createChatStreamRuntime({
 });
 
 function retryLastAction() {
-  if (lastAction === "chat") {
-    chatStreamRuntime.retryChat();
-    return;
-  }
-  sendSummarize({ refresh: true });
+  interactionRuntime.retryLastAction(lastAction);
 }
-
-function sendChatMessage() {
-  if (!chatEnabledValue) return;
-  const rawInput = chatInputEl.value;
-  const input = rawInput.trim();
-  if (!input) return;
-
-  chatInputEl.value = "";
-  chatInputEl.style.height = "auto";
-
-  const chatBusy = panelState.chatStreaming;
-  if (chatBusy || chatQueueRuntime.getQueueLength() > 0) {
-    const queued = chatQueueRuntime.enqueueChatMessage(input);
-    if (!queued) {
-      chatInputEl.value = rawInput;
-      chatInputEl.style.height = `${Math.min(chatInputEl.scrollHeight, 120)}px`;
-    } else if (!chatBusy) {
-      chatStreamRuntime.maybeSendQueuedChat();
-    }
-    return;
-  }
-
-  chatStreamRuntime.startChatMessage(input);
-}
-
-const bumpFontSize = (delta: number) => {
-  void (async () => {
-    const nextSize = typographyController.clampFontSize(
-      typographyController.getCurrentFontSize() + delta,
-    );
-    const next = await patchSettings({ fontSize: nextSize });
-    typographyController.apply(next.fontFamily, next.fontSize, next.lineHeight);
-    typographyController.setCurrentFontSize(next.fontSize);
-    typographyController.setCurrentLineHeight(next.lineHeight);
-  })();
-};
-
-const bumpLineHeight = (delta: number) => {
-  void (async () => {
-    const nextHeight = typographyController.clampLineHeight(
-      typographyController.getCurrentLineHeight() + delta,
-    );
-    const next = await patchSettings({ lineHeight: nextHeight });
-    typographyController.apply(next.fontFamily, next.fontSize, next.lineHeight);
-    typographyController.setCurrentLineHeight(next.lineHeight);
-  })();
-};
-
-const persistCurrentModel = (opts?: { focusCustom?: boolean; blurCustom?: boolean }) => {
-  updateModelRowUI();
-  if (opts?.focusCustom && !modelCustomEl.hidden) modelCustomEl.focus();
-  if (opts?.blurCustom) modelCustomEl.blur();
-  void (async () => {
-    await patchSettings({ model: readCurrentModelValue() });
-  })();
-};
 
 bindSidepanelUiEvents({
   refreshBtn,
