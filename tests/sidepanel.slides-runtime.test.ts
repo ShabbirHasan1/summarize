@@ -207,6 +207,47 @@ describe("sidepanel slides runtime", () => {
     expect(setSlidesBusy).toHaveBeenCalledWith(false);
   });
 
+  it("clears the header when slide streaming finishes in idle phase", () => {
+    const headerSetStatus = vi.fn();
+    const setSlidesBusy = vi.fn();
+    createSidepanelSlidesRuntime({
+      applySlidesPayload: vi.fn(),
+      clearSummarySource: vi.fn(),
+      friendlyFetchError: vi.fn((_error, fallback) => fallback),
+      getActiveTabUrl: vi.fn(() => "https://example.com"),
+      getInputMode: vi.fn(() => "video"),
+      getInputModeOverride: vi.fn(() => "video"),
+      getLengthValue: vi.fn(() => "medium"),
+      getPanelPhase: vi.fn(() => "idle"),
+      getPanelState: vi.fn(() => ({ phase: "idle" })),
+      getSlidesEnabled: vi.fn(() => true),
+      getToken: vi.fn(async () => "token"),
+      getTranscriptTimedText: vi.fn(() => null),
+      getUiState: vi.fn(() => null),
+      headerSetStatus,
+      hideSlideNotice: vi.fn(),
+      isStreaming: vi.fn(() => false),
+      panelUrlsMatch: vi.fn((left, right) => left === right),
+      refreshSummarizeControl: vi.fn(),
+      renderInlineSlidesFallback: vi.fn(),
+      renderMarkdown: vi.fn(),
+      schedulePanelCacheSync: vi.fn(),
+      setInputMode: vi.fn(),
+      setInputModeOverride: vi.fn(),
+      setSlidesBusy,
+      setSlidesRunId: vi.fn(),
+      showSlideNotice: vi.fn(),
+      stopSlidesStream: vi.fn(),
+      stopSlidesSummaryStream: vi.fn(),
+      updateSlideSummaryFromMarkdown: vi.fn(),
+    });
+
+    capturedHydratorOptions?.onDone?.();
+
+    expect(setSlidesBusy).toHaveBeenCalledWith(false);
+    expect(headerSetStatus).toHaveBeenCalledWith("");
+  });
+
   it("exposes run runtime helpers for slide starts and status handling", () => {
     const runtime = createSidepanelSlidesRuntime({
       applySlidesPayload: vi.fn(),

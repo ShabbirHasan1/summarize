@@ -110,6 +110,15 @@ describe("sidepanel summary stream runtime", () => {
     expect(calls.setSlidesBusy).toHaveBeenCalledWith(true);
   });
 
+  it("does not mark slides busy for non-slide status updates", () => {
+    const { calls } = buildRuntime();
+
+    capturedOptions?.onStatus?.("Summarizing this page");
+
+    expect(calls.headerSetStatus).toHaveBeenCalledWith("Summarizing this page");
+    expect(calls.setSlidesBusy).not.toHaveBeenCalled();
+  });
+
   it("updates idle subtitle metadata and schedules cache sync", () => {
     const { calls, panelState } = buildRuntime();
 
@@ -210,6 +219,15 @@ describe("sidepanel summary stream runtime", () => {
     expect(setPhase).toHaveBeenCalledWith("error", { error: "friendly stream error" });
   });
 
+  it("uses existing panel error when phase changes to error without a stream error", () => {
+    const { panelState } = buildRuntime();
+    panelState.error = "existing panel error";
+
+    capturedOptions?.onPhaseChange?.("error");
+
+    expect(panelState.error).toBe("existing panel error");
+  });
+
   it("rebuilds slide descriptions on idle when slide titles are still missing", () => {
     const { calls, panelState } = buildRuntime();
     panelState.slides = { slides: [] } as unknown as PanelState["slides"];
@@ -219,6 +237,16 @@ describe("sidepanel summary stream runtime", () => {
     expect(calls.setPhase).toHaveBeenCalledWith("idle");
     expect(calls.rebuildSlideDescriptions).toHaveBeenCalledOnce();
     expect(calls.queueSlidesRender).toHaveBeenCalledOnce();
+  });
+
+  it("does not rebuild slide descriptions on idle when there are no slides", () => {
+    const { calls } = buildRuntime();
+
+    capturedOptions?.onPhaseChange?.("idle");
+
+    expect(calls.setPhase).toHaveBeenCalledWith("idle");
+    expect(calls.rebuildSlideDescriptions).not.toHaveBeenCalled();
+    expect(calls.queueSlidesRender).not.toHaveBeenCalled();
   });
 
   it("skips progress changes for null summary cache signals and forwards rememberUrl", () => {
@@ -233,5 +261,23 @@ describe("sidepanel summary stream runtime", () => {
     expect(calls.headerArmProgress).not.toHaveBeenCalled();
     expect(calls.headerStopProgress).not.toHaveBeenCalled();
     expect(calls.refreshSummaryMetrics).toHaveBeenCalledWith("summary");
+  });
+
+  it("keeps prior meta fields when partial metadata arrives", () => {
+    const { calls, panelState } = buildRuntime();
+    panelState.lastMeta = {
+      inputSummary: "old input",
+      model: "old-model",
+      modelLabel: "Old Model",
+    };
+
+    capturedOptions?.onMeta?.({ model: "new-model" });
+
+    expect(panelState.lastMeta).toEqual({
+      inputSummary: "old input",
+      model: "new-model",
+      modelLabel: "Old Model",
+    });
+    expect(calls.schedulePanelCacheSync).toHaveBeenCalledOnce();
   });
 });
