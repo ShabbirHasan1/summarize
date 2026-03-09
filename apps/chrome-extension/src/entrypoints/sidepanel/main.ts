@@ -52,12 +52,8 @@ import { createSlidesHydrator } from "./slides-hydrator";
 import { hasResolvedSlidesPayload } from "./slides-pending";
 import { createSlidesRunRuntime } from "./slides-run-runtime";
 import { shouldSeedPlannedSlidesForRun } from "./slides-seed-policy";
+import { selectMarkdownForLayout, splitSlidesMarkdown, type SlideTextMode } from "./slides-state";
 import { createSlidesSummaryController } from "./slides-summary-controller";
-import {
-  selectMarkdownForLayout,
-  splitSlidesMarkdown,
-  type SlideTextMode,
-} from "./slides-state";
 import { createSlidesTextController } from "./slides-text-controller";
 import { resolveSlidesRenderLayout } from "./slides-view-policy";
 import { createSlidesViewRuntime } from "./slides-view-runtime";
