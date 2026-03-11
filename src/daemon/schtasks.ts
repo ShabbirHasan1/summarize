@@ -17,9 +17,18 @@ function resolveTaskScriptPath(env: Record<string, string | undefined>): string 
   return path.join(home, ".summarize", "daemon.cmd");
 }
 
+function resolveTaskLauncherPath(env: Record<string, string | undefined>): string {
+  const home = resolveHomeDir(env);
+  return path.join(home, ".summarize", "daemon-run.vbs");
+}
+
 function quoteCmdArg(value: string): string {
   if (!/[ \t"]/g.test(value)) return value;
   return `"${value.replace(/"/g, '\\"')}"`;
+}
+
+function quoteVbsString(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function parseCommandLine(value: string): string[] {
@@ -101,6 +110,16 @@ function buildTaskScript({
   return `${lines.join("\r\n")}\r\n`;
 }
 
+function buildTaskLauncherScript({ scriptPath }: { scriptPath: string }): string {
+  const escapedScriptPath = quoteVbsString(scriptPath);
+  return [
+    "Set shell = CreateObject(\"WScript.Shell\")",
+    `command = ${escapedScriptPath}`,
+    'shell.Run command, 0, False',
+    "",
+  ].join("\r\n");
+}
+
 async function execSchtasks(
   args: string[],
 ): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -141,11 +160,14 @@ export async function installScheduledTask({
 }): Promise<{ scriptPath: string }> {
   await assertSchtasksAvailable();
   const scriptPath = resolveTaskScriptPath(env);
+  const launcherPath = resolveTaskLauncherPath(env);
   await fs.mkdir(path.dirname(scriptPath), { recursive: true });
   const script = buildTaskScript({ programArguments, workingDirectory });
   await fs.writeFile(scriptPath, script, "utf8");
+  const launcher = buildTaskLauncherScript({ scriptPath });
+  await fs.writeFile(launcherPath, launcher, "utf8");
 
-  const quotedScript = quoteCmdArg(scriptPath);
+  const quotedLauncher = quoteCmdArg(launcherPath);
   const create = await execSchtasks([
     "/Create",
     "/F",
@@ -156,7 +178,7 @@ export async function installScheduledTask({
     "/TN",
     DAEMON_WINDOWS_TASK_NAME,
     "/TR",
-    quotedScript,
+    quotedLauncher,
   ]);
   if (create.code !== 0) {
     throw new Error(`schtasks create failed: ${create.stderr || create.stdout}`.trim());
@@ -179,11 +201,18 @@ export async function uninstallScheduledTask({
   await execSchtasks(["/Delete", "/F", "/TN", DAEMON_WINDOWS_TASK_NAME]);
 
   const scriptPath = resolveTaskScriptPath(env);
+  const launcherPath = resolveTaskLauncherPath(env);
   try {
     await fs.unlink(scriptPath);
     stdout.write(`Removed task script: ${scriptPath}\n`);
   } catch {
     stdout.write(`Task script not found at ${scriptPath}\n`);
+  }
+  try {
+    await fs.unlink(launcherPath);
+    stdout.write(`Removed task launcher: ${launcherPath}\n`);
+  } catch {
+    stdout.write(`Task launcher not found at ${launcherPath}\n`);
   }
 }
 
